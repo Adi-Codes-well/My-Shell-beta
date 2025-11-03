@@ -21,7 +21,7 @@ public class Main {
                     type(commands);
                     break;
                 default:
-                    printCNF(commands[0]);
+                    runExternalCommand(commands);
                     break;
             }
         }
@@ -55,9 +55,10 @@ public class Main {
                 return;
             }
         }
-            System.out.println(input[1] + ": not found");
+        System.out.println(input[1] + ": not found");
 
     }
+
     static boolean search(String[] input, String command) {
         for (String s : input) {
             if (s.equals(command)) {
@@ -66,7 +67,33 @@ public class Main {
         }
         return false;
     }
+
     static void printCNF(String input) {
         System.out.println(input + ": command not found");
+    }
+
+    static void runExternalCommand(String[] commands) {
+        String cmd = commands[0];
+        String path = System.getenv("PATH");
+        String[] dirs = path.split(":");
+
+        for (String dir : dirs) {
+            File file = new File(dir, cmd);
+            if (file.exists() && file.canExecute()) {
+
+                try {
+                    ProcessBuilder pb = new ProcessBuilder(commands);
+                    pb.inheritIO(); // use terminal input/output
+                    Process p = pb.start();
+                    p.waitFor();
+                } catch (Exception e) {
+                    System.out.println("Error running command");
+                }
+                return;
+            }
+
+        }
+        System.out.println(cmd + ": command not found");
+
     }
 }
