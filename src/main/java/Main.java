@@ -135,7 +135,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 home = System.getProperty("user.home");
             }
 
-            currentDir = new File(home);
+            newDir = new File(home);
         }
         // relative path
         else {
