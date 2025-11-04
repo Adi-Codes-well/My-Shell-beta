@@ -189,7 +189,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
             // Backslash escapes
             if (c == '\\' && !inSingle) {
 
-                // If next char exists
                 if (i + 1 < input.length()) {
                     char next = input.charAt(i + 1);
 
@@ -200,16 +199,24 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         continue;
                     }
 
-                    else {
-                        current.append('\\');
+                    // Handle escaped space (\ )
+                    if (next == ' ') {
+                        current.append(' ');
+                        i++;
                         continue;
                     }
+
+                    // Otherwise literal next char
+                    current.append(next);
+                    i++;
+                    continue;
                 }
 
-                // Trailing backslash case
+                // Trailing backslash
                 current.append('\\');
                 continue;
             }
+
 
 
             if (c == ' ' && !inSingle && !inDouble) {
