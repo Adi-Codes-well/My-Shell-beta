@@ -14,7 +14,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
         while (true) {
             System.out.print("$ ");
             String input = scanner.nextLine();
-            String[] commands = input.split(" ");
+            List<String> parsed = parseCommand(input);
+            String[] commands = parsed.toArray(new String[0]);
 
             switch (commands[0]) {
                 case "exit":
@@ -154,4 +155,35 @@ static File currentDir = new File(System.getProperty("user.dir"));
         }
 
     }
+
+    static List<String> parseCommand(String input) {
+        List<String> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inSingleQuote = false;
+
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+
+            if (c == '\'' ) {
+                inSingleQuote = !inSingleQuote; // toggle quote mode
+                continue;
+            }
+
+            if (c == ' ' && !inSingleQuote) {
+                if (!current.isEmpty()) {
+                    result.add(current.toString());
+                    current.setLength(0);
+                }
+            } else {
+                current.append(c);
+            }
+        }
+
+        if (!current.isEmpty()) {
+            result.add(current.toString());
+        }
+
+        return result;
+    }
+
 }
