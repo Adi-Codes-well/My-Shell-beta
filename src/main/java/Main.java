@@ -15,6 +15,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
             System.out.print("$ ");
             String input = scanner.nextLine();
             List<String> parsed = parseCommand(input);
+
             String[] commands = parsed.toArray(new String[0]);
 
             switch (commands[0]) {
