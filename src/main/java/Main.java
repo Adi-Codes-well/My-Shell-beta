@@ -186,7 +186,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 continue;
             }
 
-            if (c == ' ' && !inSingle) {
+            if (c == ' ' && !inSingle && !inDouble) {
                 if (!current.isEmpty()) {
                     result.add(current.toString());
                     current.setLength(0);
