@@ -170,7 +170,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 inSingle = !inSingle;
 
                 // if we just closed quotes and buffer is empty, it's an empty token
-                if (!inSingle && current.length() == 0) {
+                if (!inSingle && current.isEmpty()) {
                     result.add("");
                 }
                 continue;
@@ -180,13 +180,13 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 inDouble = !inDouble;
 
                 // if we just closed quotes and buffer is empty, it's an empty token
-                if (!inDouble && current.length() == 0) {
+                if (!inDouble && current.isEmpty()) {
                     result.add("");
                 }
                 continue;
             }
 
-            if (c == ' ' && !inSingleQuote) {
+            if (c == ' ' && !inSingle) {
                 if (!current.isEmpty()) {
                     result.add(current.toString());
                     current.setLength(0);
