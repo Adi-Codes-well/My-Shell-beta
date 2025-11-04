@@ -1,5 +1,5 @@
-import java.util.Scanner;
-import java.io.File;
+import java.util.*;
+import java.io.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -20,6 +20,9 @@ public class Main {
                 case "type":
                     type(commands);
                     break;
+
+                case "pwd":
+                    pwd();
                 default:
                     runExternalCommand(commands);
                     break;
@@ -95,5 +98,10 @@ public class Main {
         }
         System.out.println(cmd + ": command not found");
 
+    }
+
+    static void pwd() {
+        String currentDir = System.getProperty("user.dir");
+        System.out.println(currentDir);
     }
 }
