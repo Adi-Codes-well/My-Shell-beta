@@ -160,17 +160,29 @@ static File currentDir = new File(System.getProperty("user.dir"));
     static List<String> parseCommand(String input) {
         List<String> result = new ArrayList<>();
         StringBuilder current = new StringBuilder();
-        boolean inSingleQuote = false;
-        boolean inDoubleQuote = false;
+        boolean inSingle = false;
+        boolean inDouble = false;
 
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
-            if (c == '\'' && !inDoubleQuote) {
-                inSingleQuote = !inSingleQuote; // toggle quote mode
+            if (c == '\'' && !inDouble) {
+                inSingle = !inSingle;
+
+                // if we just closed quotes and buffer is empty, it's an empty token
+                if (!inSingle && current.length() == 0) {
+                    result.add("");
+                }
                 continue;
-            } else if (c == '"') {
-                inDoubleQuote = !inDoubleQuote; // toggle quote mode
+            }
+
+            if (c == '"' && !inSingle) {
+                inDouble = !inDouble;
+
+                // if we just closed quotes and buffer is empty, it's an empty token
+                if (!inDouble && current.length() == 0) {
+                    result.add("");
+                }
                 continue;
             }
 
