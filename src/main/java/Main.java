@@ -168,6 +168,9 @@ static File currentDir = new File(System.getProperty("user.dir"));
             if (c == '\'' ) {
                 inSingleQuote = !inSingleQuote; // toggle quote mode
                 continue;
+            } else if (c == '\"') {
+                inSingleQuote = !inSingleQuote; // toggle quote mode
+                continue;
             }
 
             if (c == ' ' && !inSingleQuote) {
