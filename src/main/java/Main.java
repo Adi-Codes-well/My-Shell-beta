@@ -191,7 +191,21 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     result.add(current.toString());
                     current.setLength(0);
                 }
-            } else {
+            }
+
+            if (c == '\\' && !inSingle) {
+                if (i + 1 < input.length()) {
+                    current.append(input.charAt(i + 1));
+                    i++; // Skip next char
+                    continue;
+                } else {
+                    // Trailing backslash edge case: treat literally
+                    current.append('\\');
+                    continue;
+                }
+            }
+
+            else {
                 current.append(c);
             }
         }
