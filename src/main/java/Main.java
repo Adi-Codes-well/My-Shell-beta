@@ -23,6 +23,7 @@ public class Main {
 
                 case "pwd":
                     pwd();
+                    break;
                 default:
                     runExternalCommand(commands);
                     break;
