@@ -123,7 +123,16 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
         String path = commands[1];
 
-        File newDir = new File(path);
+        File newDir;
+
+        // Absolute path
+        if (path.startsWith("/")) {
+            newDir = new File(path);
+        }
+        // relative path
+        else {
+            newDir = new File(currentDir, path);
+        }
 
         if (newDir.isAbsolute() && newDir.exists() && newDir.isDirectory()) {
             currentDir = newDir;
