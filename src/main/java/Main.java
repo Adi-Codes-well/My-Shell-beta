@@ -186,16 +186,46 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 continue;
             }
 
+            // Backslash escapes
             if (c == '\\' && !inSingle) {
+
+                // If next char exists
                 if (i + 1 < input.length()) {
-                    current.append(input.charAt(i + 1));
+                    char next = input.charAt(i + 1);
+
+                    // Handle newline escape (\n)
+                    if (next == 'n') {
+                        current.append('\n');
+                        i++;
+                        continue;
+                    }
+
+                    // Handle octal escape \NNN (up to 3 digits)
+                    if (next >= '0' && next <= '7') {
+                        int j = i + 1;
+                        StringBuilder oct = new StringBuilder();
+                        while (j < input.length() && oct.length() < 3 &&
+                                input.charAt(j) >= '0' && input.charAt(j) <= '7') {
+                            oct.append(input.charAt(j));
+                            j++;
+                        }
+                        int val = Integer.parseInt(oct.toString(), 8);
+                        current.append((char) val);
+                        i += oct.length();
+                        continue;
+                    }
+
+                    // Normal escape: take next char literally
+                    current.append(next);
                     i++;
                     continue;
-                } else {
-                    current.append('\\');
-                    continue;
                 }
+
+                // Trailing backslash case
+                current.append('\\');
+                continue;
             }
+
 
             if (c == ' ' && !inSingle && !inDouble) {
                 if (!current.isEmpty()) {
