@@ -134,11 +134,16 @@ static File currentDir = new File(System.getProperty("user.dir"));
             newDir = new File(currentDir, path);
         }
 
-        if (newDir.isAbsolute() && newDir.exists() && newDir.isDirectory()) {
-            currentDir = newDir;
-            System.setProperty("user.dir", currentDir.getAbsolutePath());
-        } else {
+        try {
+            if (newDir.exists() && newDir.isDirectory()) {
+                currentDir = newDir.getCanonicalFile(); // normalize path (removes ./ and ../)
+                System.setProperty("user.dir", currentDir.getAbsolutePath());
+            } else {
+                System.out.println("cd: " + path + ": No such file or directory");
+            }
+        } catch (IOException e) {
             System.out.println("cd: " + path + ": No such file or directory");
         }
+
     }
 }
