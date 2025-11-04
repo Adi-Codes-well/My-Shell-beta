@@ -44,7 +44,7 @@ public class Main {
     }
 
     static void type(String[] input) {
-        String[] validCommands = {"exit", "type", "echo"};
+        String[] validCommands = {"exit", "type", "echo", "pwd"};
         if (search(validCommands, input[1])) {
             System.out.println(input[1] + " is a shell builtin");
             return;
