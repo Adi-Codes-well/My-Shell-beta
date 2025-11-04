@@ -193,11 +193,11 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     char next = input.charAt(i + 1);
 
                     // Handle newline escape (\n)
-                    if (next == 'n') {
+                    /*if (next == 'n') {
                         current.append('\n');
                         i++;
                         continue;
-                    }
+                    }*/
 
                     // Handle escaped space (\ )
                     if (next == ' ') {
