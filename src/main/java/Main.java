@@ -186,6 +186,18 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 continue;
             }
 
+            if (c == '\\' && !inSingle) {
+                if (i + 1 < input.length()) {
+                    current.append(input.charAt(i + 1));
+                    i++;
+                    continue;
+                } else {
+                    current.append('\\');
+                    continue;
+                }
+            }
+
+
             if (c == ' ' && !inSingle && !inDouble) {
                 if (!current.isEmpty()) {
                     result.add(current.toString());
@@ -193,17 +205,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 }
             }
 
-            if (c == '\\' && !inSingle) {
-                if (i + 1 < input.length()) {
-                    current.append(input.charAt(i + 1));
-                    i++; // Skip next char
-                    continue;
-                } else {
-                    // Trailing backslash edge case: treat literally
-                    current.append('\\');
-                    continue;
-                }
-            }
+
 
             else {
                 current.append(c);
