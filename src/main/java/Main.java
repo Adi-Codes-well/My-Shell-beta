@@ -128,6 +128,14 @@ static File currentDir = new File(System.getProperty("user.dir"));
         // Absolute path
         if (path.startsWith("/")) {
             newDir = new File(path);
+        } else if (path.startsWith("~")) {
+            String home = System.getenv("HOME");
+
+            if (home == null) {
+                home = System.getProperty("user.home");
+            }
+
+            currentDir = new File(home);
         }
         // relative path
         else {
