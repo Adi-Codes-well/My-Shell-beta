@@ -189,7 +189,25 @@ static File currentDir = new File(System.getProperty("user.dir"));
             // Backslash escapes
             if (c == '\\' && !inSingle) {
 
-                if (i + 1 < input.length()) {
+                if (inSingle) {
+                    current.append('\\');
+                    continue;
+                }
+
+                if (inDouble) {
+                    if (i + 1 < input.length()) {
+                        char next = input.charAt(i + 1);
+                        if (next == '\\' || next == '"' || next == '$' || next == '`') {
+                            current.append(next);
+                            i++;
+                            continue;
+                        }
+                    }
+                    current.append('\\');
+                    continue;
+                }
+
+                    if (i + 1 < input.length()) {
                     char next = input.charAt(i + 1);
 
                     // Handle newline escape (\n)
