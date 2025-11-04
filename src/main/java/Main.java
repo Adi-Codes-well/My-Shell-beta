@@ -200,25 +200,10 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         continue;
                     }
 
-                    // Handle octal escape \NNN (up to 3 digits)
-                    if (next >= '0' && next <= '7') {
-                        int j = i + 1;
-                        StringBuilder oct = new StringBuilder();
-                        while (j < input.length() && oct.length() < 3 &&
-                                input.charAt(j) >= '0' && input.charAt(j) <= '7') {
-                            oct.append(input.charAt(j));
-                            j++;
-                        }
-                        int val = Integer.parseInt(oct.toString(), 8);
-                        current.append((char) val);
-                        i += oct.length();
+                    else {
+                        current.append('\\');
                         continue;
                     }
-
-                    // Normal escape: take next char literally
-                    current.append(next);
-                    i++;
-                    continue;
                 }
 
                 // Trailing backslash case
