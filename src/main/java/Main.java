@@ -1,7 +1,13 @@
 import java.util.*;
 import java.io.*;
 
+
+
+
 public class Main {
+
+// Global variable
+static File currentDir = new File(System.getProperty("user.dir"));
     public static void main(String[] args) throws Exception {
         Scanner scanner = new Scanner(System.in);
 
@@ -23,6 +29,10 @@ public class Main {
 
                 case "pwd":
                     pwd();
+                    break;
+
+                case "cd":
+                    cd(commands);
                     break;
                 default:
                     runExternalCommand(commands);
@@ -87,6 +97,7 @@ public class Main {
 
                 try {
                     ProcessBuilder pb = new ProcessBuilder(commands);
+                    pb.directory(currentDir);
                     pb.inheritIO(); // use terminal input/output
                     Process p = pb.start();
                     p.waitFor();
@@ -102,7 +113,23 @@ public class Main {
     }
 
     static void pwd() {
-        String currentDir = System.getProperty("user.dir");
-        System.out.println(currentDir);
+        System.out.println(currentDir.getAbsolutePath());
+    }
+
+    static void cd(String[] commands) {
+        if (commands.length < 2) {
+            return;
+        }
+
+        String path = commands[1];
+
+        File newDir = new File(path);
+
+        if (newDir.isAbsolute() && newDir.exists() && newDir.isDirectory()) {
+            currentDir = newDir;
+            System.setProperty("user.dir", currentDir.getAbsolutePath());
+        } else {
+            System.out.println("cd: " + path + ": No such file or directory");
+        }
     }
 }
