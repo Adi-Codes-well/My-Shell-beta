@@ -161,6 +161,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         List<String> result = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
 
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
@@ -168,8 +169,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
             if (c == '\'' ) {
                 inSingleQuote = !inSingleQuote; // toggle quote mode
                 continue;
-            } else if (c == '\"') {
-                inSingleQuote = !inSingleQuote; // toggle quote mode
+            } else if (c == '"') {
+                inDoubleQuote = !inDoubleQuote; // toggle quote mode
                 continue;
             }
 
