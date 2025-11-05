@@ -45,14 +45,17 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     System.exit(Integer.parseInt(commands[1]));
                     break;
                 case "echo":
-                    List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
-                    if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
-                        String errFileTmp = cmdList.get(cmdList.size() - 1);
-                        cmdList = cmdList.subList(0, cmdList.size() - 2);
-                        commands = cmdList.toArray(new String[0]);
-                        writeToFile(errFileTmp, "", append); // echo normally has no error, so empty stderr
+                    List<String> echoList = new ArrayList<>(Arrays.asList(commands));
+
+                    // Handle stderr marker
+                    if (echoList.size() >= 2 && echoList.get(echoList.size() - 2).equals("__REDIR_ERR__")) {
+                        String errFileTmp = echoList.get(echoList.size() - 1);
+                        echoList = echoList.subList(0, echoList.size() - 2);
+                        commands = echoList.toArray(new String[0]);
+                        writeToFile(errFileTmp, "", append);
                     }
 
+                    // detect append again inside echo
                     if (parsed.size() >= 2 && parsed.get(parsed.size() - 2).equals("__APPEND__")) {
                         append = true;
                         outFile = parsed.get(parsed.size() - 1);
@@ -60,24 +63,30 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         commands = parsed.toArray(new String[0]);
                     }
 
+                    // Build echo output
+                    StringBuilder echoOut = new StringBuilder();
+                    for (int i = 1; i < commands.length; i++) {
+                        if (i > 1) echoOut.append(" ");
+                        echoOut.append(commands[i]);
+                    }
+                    echoOut.append("\n");
+
+                    // If redirect or append
                     if ((redirect || append) && outFile != null) {
                         File target = new File(outFile);
                         File parent = target.getParentFile();
 
-                        // ✅ match POSIX: silently ignore if directory doesn’t exist
+                        // ❗ Directory doesn't exist -> write to /dev/null
                         if (parent != null && !parent.exists()) {
-                            return;
+                            try (FileWriter fw = new FileWriter("/dev/null", true)) {
+                                fw.write(echoOut.toString());
+                            } catch (IOException ignored) {}
+                        } else {
+                            writeToFile(outFile, echoOut.toString(), append);
                         }
 
-                        StringBuilder sb = new StringBuilder();
-                        for (int i = 1; i < commands.length; i++) {
-                            if (i > 1) sb.append(" ");
-                            sb.append(commands[i]);
-                        }
-                        sb.append("\n");
-
-                        writeToFile(outFile, sb.toString(), append);
                     } else {
+                        // normal echo
                         echo(commands);
                     }
                     break;
@@ -181,12 +190,25 @@ static File currentDir = new File(System.getProperty("user.dir"));
             }
         }
 
-// ✅ If directory doesn't exist, ignore redirect silently
+        File nullFile = new File("/dev/null");
         if (invalidOutputPath) {
+            // disable real redirect, but discard stdout
             redirect = false;
             append = false;
             outFile = null;
+
+            // force discarding output
+            ProcessBuilder pb = new ProcessBuilder(commands);
+            pb.directory(currentDir);
+            pb.redirectOutput(nullFile);
+            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+            try {
+                Process p = pb.start();
+                p.waitFor();
+            } catch (Exception ignored) {}
+            return;
         }
+
 
 
         for (String dir : dirs) {
