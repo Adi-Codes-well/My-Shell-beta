@@ -144,6 +144,13 @@ static File currentDir = new File(System.getProperty("user.dir"));
             commands = cmdList.toArray(new String[0]);
         }
 
+        if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__APPEND__")) {
+            append = true;
+            outFile = cmdList.get(cmdList.size() - 1);
+            cmdList = cmdList.subList(0, cmdList.size() - 2);
+            commands = cmdList.toArray(new String[0]);
+        }
+
         for (String dir : dirs) {
             File file = new File(dir, cmd);
             if (file.exists() && file.canExecute()) {
