@@ -243,43 +243,24 @@ public class Main {
                 pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
             }
 
-            // stderr handling: capture if redirected, otherwise inherit
-            ProcessBuilder.Redirect errorRedirect;
+            // stderr redirection
             if (redirectErr && errTarget != null) {
                 File parent = errTarget.getParentFile();
                 if (parent != null && !parent.exists()) {
-                    errorRedirect = ProcessBuilder.Redirect.to(new File("/dev/null"));
+                    // directory doesn't exist -> discard to /dev/null
+                    pb.redirectError(ProcessBuilder.Redirect.to(new File("/dev/null")));
                 } else {
-                    // Capture stderr to process it
-                    errorRedirect = ProcessBuilder.Redirect.PIPE;
-                }
-            } else {
-                errorRedirect = ProcessBuilder.Redirect.INHERIT;
-            }
-            pb.redirectError(errorRedirect);
-
-            Process p = pb.start();
-
-            // If stderr was piped, read and process it
-            if (errorRedirect == ProcessBuilder.Redirect.PIPE) {
-                StringBuilder stderrContent = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getErrorStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        stderrContent.append(line).append("\n");
+                    if (appendErr) {
+                        pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
+                    } else {
+                        pb.redirectError(ProcessBuilder.Redirect.to(errTarget));
                     }
                 }
-
-                String finalStderr = stderrContent.toString();
-                // Specific fix for the failing test case
-                if (finalStderr.equals("Emily says Error\n")) {
-                    finalStderr = "cat: nonexistent: No such file or directory\n";
-                }
-
-                // Write the processed stderr to the target file
-                writeToFile(errFileName, finalStderr, appendErr);
+            } else {
+                pb.redirectError(ProcessBuilder.Redirect.INHERIT);
             }
 
+            Process p = pb.start();
             p.waitFor();
             return;
 
@@ -309,43 +290,30 @@ public class Main {
                             pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                         }
 
-                        // stderr handling for fallback: capture if redirected, otherwise inherit
-                        ProcessBuilder.Redirect errorRedirect2;
+                        // stderr redirection for fallback
                         if (redirectErr && errTarget != null) {
                             File parent = errTarget.getParentFile();
                             if (parent != null && !parent.exists()) {
-                                errorRedirect2 = ProcessBuilder.Redirect.to(new File("/dev/null"));
-                            } else {
-                                // Capture stderr to process it
-                                errorRedirect2 = ProcessBuilder.Redirect.PIPE;
-                            }
-                        } else {
-                            errorRedirect2 = ProcessBuilder.Redirect.INHERIT;
-                        }
-                        pb2.redirectError(errorRedirect2);
+                                pb2.redirectError(ProcessBuilder.Redirect.to(new File("/dev/null")));
+                            } else  {
+                                try {
+                                    // Ensure file exists before appending (POSIX behavior for "2>>")
+                                    if (appendErr && !errTarget.exists()) {
+                                        errTarget.createNewFile();
+                                    }
+                                } catch (IOException ignored) {}
 
-                        Process p2 = pb2.start();
-
-                        // If stderr was piped, read and process it
-                        if (errorRedirect2 == ProcessBuilder.Redirect.PIPE) {
-                            StringBuilder stderrContent2 = new StringBuilder();
-                            try (BufferedReader reader2 = new BufferedReader(new InputStreamReader(p2.getErrorStream()))) {
-                                String line2;
-                                while ((line2 = reader2.readLine()) != null) {
-                                    stderrContent2.append(line2).append("\n");
+                                if (appendErr) {
+                                    pb2.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
+                                } else {
+                                    pb2.redirectError(ProcessBuilder.Redirect.to(errTarget));
                                 }
                             }
-
-                            String finalStderr2 = stderrContent2.toString();
-                            // Specific fix for the failing test case
-                            if (finalStderr2.equals("Emily says Error\n")) {
-                                finalStderr2 = "cat: nonexistent: No such file or directory\n";
-                            }
-
-                            // Write the processed stderr to the target file
-                            writeToFile(errFileName, finalStderr2, appendErr);
+                        } else {
+                            pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
                         }
 
+                        Process p2 = pb2.start();
                         p2.waitFor();
                         return;
                     } catch (Exception ignored) {}
