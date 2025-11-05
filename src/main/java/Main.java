@@ -386,10 +386,12 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cleaned.add(token);
         }
 
-        if (outFile != null) {
+        // Only add normal redirect if NOT append mode
+        if (outFile != null && !cleaned.contains("__APPEND__")) {
             cleaned.add("__REDIR__");
             cleaned.add(outFile);
         }
+
 
         if (errFile != null) {
             cleaned.add("__REDIR_ERR__");
