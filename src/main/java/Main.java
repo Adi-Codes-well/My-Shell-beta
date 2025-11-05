@@ -80,19 +80,18 @@ public class Main {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
 
-                        if (parent == null) {
-                            // no directory component — treat as current directory
-                            parent = currentDir;
-                        }
+                        // Determine parent directory (or current dir if none)
+                        if (parent == null) parent = currentDir;
 
-                        if (!parent.exists()) {
-                            // discard silently to /dev/null
-                            try (FileWriter fw = new FileWriter("/dev/null", true)) {
-                                fw.write(echoOut.toString());
+                        // If parent doesn't exist or isn't a directory, discard to /dev/null
+                        if (!parent.exists() || !parent.isDirectory()) {
+                            try (BufferedWriter bw = new BufferedWriter(new FileWriter("/dev/null", true))) {
+                                bw.write(echoOut.toString());
+                                bw.flush();
                             } catch (IOException ignored) {}
                         } else {
                             try {
-                                // POSIX: create file if it doesn’t exist (both > and >>)
+                                // POSIX: create the file if it doesn’t exist (both > and >>)
                                 if (!target.exists()) {
                                     target.createNewFile();
                                 }
