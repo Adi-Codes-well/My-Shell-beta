@@ -80,8 +80,12 @@ public class Main {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
                         // POSIX behavior: if directory doesn’t exist, silently discard any stderr output
-                        if (parent != null && !parent.exists()) {
-                            // do nothing (discard)
+                        if (parent == null || parent.exists()) {
+                            try {
+                                if (!target.exists()) {
+                                    target.createNewFile();
+                                }
+                            } catch (IOException ignored) {}
                         }
                     }
 
