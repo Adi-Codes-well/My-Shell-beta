@@ -18,6 +18,19 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
             String[] commands = parsed.toArray(new String[0]);
 
+            boolean redirect = false;
+            String outFile = null;
+
+            if (parsed.size() >= 2 && parsed.get(parsed.size() - 2).equals("__REDIR__")) {
+                redirect = true;
+                outFile = parsed.get(parsed.size() - 1);
+
+                // remove __REDIR__ and filename from command list
+                parsed = parsed.subList(0, parsed.size() - 2);
+                commands = parsed.toArray(new String[0]);
+            }
+
+
             switch (commands[0]) {
                 case "exit":
                     System.exit(Integer.parseInt(commands[1]));
@@ -88,7 +101,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         System.out.println(input + ": command not found");
     }
 
-    static void runExternalCommand(String[] commands) {
+    static void runExternalCommand(String[] commands, boolean redirect, String outFile) {
         String cmd = commands[0];
         String path = System.getenv("PATH");
         String[] dirs = path.split(":");
@@ -100,7 +113,12 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 try {
                     ProcessBuilder pb = new ProcessBuilder(commands);
                     pb.directory(currentDir);
-                    pb.inheritIO(); // use terminal input/output
+                    if (redirect && outFile != null) {
+                        pb.redirectOutput(new File(outFile));
+                    } else {
+                        pb.inheritIO();
+                    }
+
                     Process p = pb.start();
                     p.waitFor();
                 } catch (Exception e) {
