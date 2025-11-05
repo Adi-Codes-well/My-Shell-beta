@@ -91,7 +91,12 @@ public class Main {
                     }
 
                     // Always print to stdout (POSIX)
-                    System.out.print(echoOut.toString());
+                    if (outFileTmp == null && errFileTmp == null) {
+                        System.out.print(echoOut.toString());
+                    } else if (outFileTmp != null && errFileTmp == null) {
+                        System.out.print(echoOut.toString());
+                    }
+
 
                     // stdout handling for builtin echo
                     if (outFileTmp != null) {
