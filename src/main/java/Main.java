@@ -48,7 +48,15 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         String errFileTmp = echoList.get(echoList.size() - 1);
                         echoList = echoList.subList(0, echoList.size() - 2);
                         commands = echoList.toArray(new String[0]);
-                        writeToFile(errFileTmp, "", append);
+                        StringBuilder echoErrOut = new StringBuilder();
+                        for (int i = 1; i < commands.length; i++) {
+                            if (i > 1) echoErrOut.append(" ");
+                            echoErrOut.append(commands[i]);
+                        }
+                        echoErrOut.append("\n");
+                        writeToFile(errFileTmp, echoErrOut.toString(), true);
+                        continue; // skip normal echo
+
                     }
 
                     // detect append again inside echo
@@ -71,8 +79,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     if ((redirect || append) && outFile != null) {
                         File target = new File(outFile);
                         File parent = target.getParentFile();
-
-                        // ❗ Directory doesn't exist -> write to /dev/null
                         if (parent != null && !parent.exists()) {
                             try (FileWriter fw = new FileWriter("/dev/null", true)) {
                                 fw.write(echoOut.toString());
@@ -225,7 +231,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
                     // ✅ stderr redirection if needed
                     if (redirectErr && errFile != null) {
-                        pb.redirectError(new File(errFile));
+                        File errTarget = new File(errFile);
+                        pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
                     } else {
                         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
                     }
