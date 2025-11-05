@@ -175,9 +175,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
         String errFile = null;
         boolean append = false;
 
-
-
-
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
 
         // Detect append stderr redirection (2>>)
@@ -186,7 +183,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
             appendErr = true;
             errFile = cmdList.get(cmdList.size() - 1);
             cmdList = cmdList.subList(0, cmdList.size() - 2);
-            commands = cmdList.toArray(new String[0]);
         }
 
         // Detect normal stderr redirection (2>)
@@ -195,7 +191,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
             appendErr = false;
             errFile = cmdList.get(cmdList.size() - 1);
             cmdList = cmdList.subList(0, cmdList.size() - 2);
-            commands = cmdList.toArray(new String[0]);
         }
 
         // Detect append stdout (>>)
@@ -203,13 +198,13 @@ static File currentDir = new File(System.getProperty("user.dir"));
             append = true;
             outFile = cmdList.get(cmdList.size() - 1);
             cmdList = cmdList.subList(0, cmdList.size() - 2);
-            commands = cmdList.toArray(new String[0]);
         }
 
-        // Make local copies before looping
+        // ✅ move after all detections
         final boolean fRedirectErr = redirectErr;
         final boolean fAppendErr = appendErr;
         final String fErrFile = errFile;
+
         // ✅ Check if stdout redirection path is valid
         boolean invalidOutputPath = false;
         if (outFile != null) {
@@ -232,10 +227,11 @@ static File currentDir = new File(System.getProperty("user.dir"));
             File file = new File(dir, cmd);
             if (file.exists() && file.canExecute()) {
                 try {
-                    ProcessBuilder pb = new ProcessBuilder(commands);
+                    // ✅ Always use latest cmdList
+                    ProcessBuilder pb = new ProcessBuilder(cmdList);
                     pb.directory(currentDir);
 
-                    // ✅ stdout redirection handling
+                    // stdout redirection
                     if (!invalidOutputPath && append && outFile != null)
                         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
                     else if (!invalidOutputPath && redirect && outFile != null)
@@ -243,7 +239,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     else
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 
-                    // ✅ stderr redirection handling (final fix)
+                    // stderr redirection
                     if (fRedirectErr && fErrFile != null) {
                         File errTarget = new File(fErrFile);
                         File parent = errTarget.getParentFile();
