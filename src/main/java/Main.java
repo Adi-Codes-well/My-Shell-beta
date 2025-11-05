@@ -80,20 +80,30 @@ public class Main {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
 
-                        if (parent == null || !parent.exists()) {
-                            // discard completely
+                        if (parent == null) {
+                            // no directory component — treat as current directory
+                            parent = currentDir;
+                        }
+
+                        if (!parent.exists()) {
+                            // discard silently to /dev/null
                             try (FileWriter fw = new FileWriter("/dev/null", true)) {
                                 fw.write(echoOut.toString());
                             } catch (IOException ignored) {}
                         } else {
-                            writeToFile(errFileTmp, echoOut.toString(), errAppend);
+                            try {
+                                // make sure file exists before append
+                                if (errAppend && !target.exists()) {
+                                    target.createNewFile();
+                                }
+                                writeToFile(errFileTmp, echoOut.toString(), errAppend);
+                            } catch (IOException ignored) {}
                         }
                     }
 
-                    // Always print to stdout (POSIX)
-                    if (outFileTmp == null && errFileTmp == null) {
-                        System.out.print(echoOut.toString());
-                    } else if (outFileTmp != null && errFileTmp == null) {
+
+                    // Only print to stdout if no stderr redirection
+                    if (errFileTmp == null) {
                         System.out.print(echoOut.toString());
                     }
 
