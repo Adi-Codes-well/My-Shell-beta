@@ -164,29 +164,33 @@ static File currentDir = new File(System.getProperty("user.dir"));
             if (file.exists() && file.canExecute()) {
 
                 try {
+                    if ((redirect || append) && outFile != null) {
+                        File target = new File(outFile);
+                        File parent = target.getParentFile();
+
+                        if (parent != null && !parent.exists()) {
+                            return; // silent fail
+                        }
+                    }
+
                     ProcessBuilder pb = new ProcessBuilder(commands);
                     pb.directory(currentDir);
+
+                    // stdout handling
                     if (append && outFile != null) {
-                        // APPEND mode
                         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
-                        pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-                    }
-                    else if (redirect && outFile != null) {
-                        // OVERWRITE mode
+                    } else if (redirect && outFile != null) {
                         pb.redirectOutput(new File(outFile));
-                    }
-                    else {
-                        // no redirection
-                        pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+                    } else {
+                        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                     }
 
-
+                    // stderr handling
                     if (redirectErr && errFile != null) {
                         pb.redirectError(new File(errFile));
                     } else {
                         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
                     }
-
 
                     Process p = pb.start();
                     p.waitFor();
@@ -195,10 +199,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 }
                 return;
             }
-
         }
         System.out.println(cmd + ": command not found");
-
     }
 
     static void pwd() {
