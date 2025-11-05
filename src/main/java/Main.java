@@ -364,15 +364,16 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
             if (token.equals(">") || token.equals("1>")) {
                 outFile = result.get(i + 1);
-                i++;
+                i++; // skip filename token
                 continue;
-            } else if (token.startsWith(">")) {
+            } else if (token.startsWith(">")) { // e.g. >file
                 outFile = token.substring(1);
                 continue;
             } else if (token.startsWith("1>")) {
                 outFile = token.substring(2);
                 continue;
             }
+
 
 
 
@@ -386,14 +387,14 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 continue;
             }
 
-            // stdout append
+            // stdout append >>
             if (token.equals(">>") || token.equals("1>>")) {
                 outFile = result.get(i + 1);
                 cleaned.add("__APPEND__");
                 cleaned.add(outFile);
-                i++;
+                i++; // skip filename
                 continue;
-            } else if (token.startsWith(">>")) {
+            } else if (token.startsWith(">>")) { // e.g. >>file
                 outFile = token.substring(2);
                 cleaned.add("__APPEND__");
                 cleaned.add(outFile);
