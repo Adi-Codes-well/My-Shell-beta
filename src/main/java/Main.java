@@ -237,44 +237,82 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
         File nullFile = new File("/dev/null");
 
-        for (String dir : dirs) {
-            File file = new File(dir, cmd);
-            if (file.exists() && file.canExecute()) {
-                try {
-                    ProcessBuilder pb = new ProcessBuilder(cmdList);
-                    pb.directory(currentDir);
+        try {
+            ProcessBuilder pb = new ProcessBuilder(cmdList);
+            pb.directory(currentDir);
 
-                    // ✅ stdout redirection
-                    if (!invalidOutPath && redirectOut && outFileName != null) {
-                        if (appendOut)
-                            pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFileName)));
-                        else
-                            pb.redirectOutput(new File(outFileName));
-                    } else {
-                        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-                    }
-
-                    // ✅ stderr redirection
-                    if (!invalidErrPath && redirectErr && errFileName != null) {
-                        if (appendErr)
-                            pb.redirectError(ProcessBuilder.Redirect.appendTo(new File(errFileName)));
-                        else
-                            pb.redirectError(new File(errFileName));
-                    } else if (invalidErrPath) {
-                        pb.redirectError(nullFile); // discard silently
-                    } else {
-                        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-                    }
-
-                    Process p = pb.start();
-                    p.waitFor();
-                    return;
-
-                } catch (Exception ignored) {}
+            // ✅ stdout redirection
+            if (redirectOut && outFileName != null) {
+                if (appendOut)
+                    pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFileName)));
+                else
+                    pb.redirectOutput(new File(outFileName));
+            } else {
+                pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
             }
+
+            // ✅ stderr redirection
+            if (redirectErr && errFileName != null) {
+                File parent = new File(errFileName).getParentFile();
+                if (parent != null && !parent.exists()) {
+                    pb.redirectError(new File("/dev/null"));
+                } else if (appendErr) {
+                    pb.redirectError(ProcessBuilder.Redirect.appendTo(new File(errFileName)));
+                } else {
+                    pb.redirectError(new File(errFileName));
+                }
+            } else {
+                pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+            }
+
+            Process p = pb.start();
+            p.waitFor();
+            return;
+
+        } catch (IOException e) {
+            // If not found directly, try PATH search
+            for (String dir : dirs) {
+                File file = new File(dir, cmd);
+                if (file.exists() && file.canExecute()) {
+                    try {
+                        List<String> newCmd = new ArrayList<>(cmdList);
+                        newCmd.set(0, file.getAbsolutePath());
+                        ProcessBuilder pb2 = new ProcessBuilder(newCmd);
+                        pb2.directory(currentDir);
+
+                        if (redirectOut && outFileName != null) {
+                            if (appendOut)
+                                pb2.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFileName)));
+                            else
+                                pb2.redirectOutput(new File(outFileName));
+                        } else {
+                            pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+                        }
+
+                        if (redirectErr && errFileName != null) {
+                            File parent = new File(errFileName).getParentFile();
+                            if (parent != null && !parent.exists()) {
+                                pb2.redirectError(new File("/dev/null"));
+                            } else if (appendErr) {
+                                pb2.redirectError(ProcessBuilder.Redirect.appendTo(new File(errFileName)));
+                            } else {
+                                pb2.redirectError(new File(errFileName));
+                            }
+                        } else {
+                            pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
+                        }
+
+                        Process p2 = pb2.start();
+                        p2.waitFor();
+                        return;
+                    } catch (Exception ignored) {}
+                }
+            }
+            System.out.println(cmd + ": command not found");
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
-        System.out.println(cmd + ": command not found");
     }
 
     static void pwd() {
