@@ -254,12 +254,19 @@ static File currentDir = new File(System.getProperty("user.dir"));
             // ✅ stderr redirection
             if (redirectErr && errFileName != null) {
                 File parent = new File(errFileName).getParentFile();
+                File errTarget;
+
                 if (parent != null && !parent.exists()) {
-                    pb.redirectError(new File("/dev/null"));
-                } else if (appendErr) {
-                    pb.redirectError(ProcessBuilder.Redirect.appendTo(new File(errFileName)));
+                    // Parent dir doesn’t exist → discard stderr silently
+                    errTarget = new File("/dev/null");
                 } else {
-                    pb.redirectError(new File(errFileName));
+                    errTarget = new File(errFileName);
+                }
+
+                if (appendErr) {
+                    pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
+                } else {
+                    pb.redirectError(ProcessBuilder.Redirect.to(errTarget));
                 }
             } else {
                 pb.redirectError(ProcessBuilder.Redirect.INHERIT);
