@@ -177,9 +177,17 @@ static File currentDir = new File(System.getProperty("user.dir"));
             File target = new File(outFile);
             File parent = target.getParentFile();
             if (parent != null && !parent.exists()) {
-                invalidOutputPath = true;  // do not error, just ignore redirect
+                invalidOutputPath = true;
             }
         }
+
+// ✅ If directory doesn't exist, ignore redirect silently
+        if (invalidOutputPath) {
+            redirect = false;
+            append = false;
+            outFile = null;
+        }
+
 
         for (String dir : dirs) {
             File file = new File(dir, cmd);
