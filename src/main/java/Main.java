@@ -37,21 +37,29 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     break;
                 case "echo":
                     List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
+                    boolean append = false;
                     if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
                         String errFileTmp = cmdList.get(cmdList.size() - 1);
                         cmdList = cmdList.subList(0, cmdList.size() - 2);
                         commands = cmdList.toArray(new String[0]);
-                        writeToFile(errFileTmp, ""); // echo normally has no error, so empty stderr
+                        writeToFile(errFileTmp, "", append); // echo normally has no error, so empty stderr
                     }
 
-                    if (redirect && outFile != null) {
+                    if (parsed.size() >= 2 && parsed.get(parsed.size() - 2).equals("__APPEND__")) {
+                        append = true;
+                        outFile = parsed.get(parsed.size() - 1);
+                        parsed = parsed.subList(0, parsed.size() - 2);
+                        commands = parsed.toArray(new String[0]);
+                    }
+
+                    if ((redirect || append) && outFile != null) {
                         StringBuilder sb = new StringBuilder();
                         for (int i = 1; i < commands.length; i++) {
                             if (i > 1) sb.append(" ");
                             sb.append(commands[i]);
                         }
                         sb.append("\n");
-                        writeToFile(outFile, sb.toString());
+                        writeToFile(outFile, sb.toString(), append);
                     } else {
                         echo(commands);
                     }
@@ -126,6 +134,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
         boolean redirectErr = false;
         String errFile = null;
+        boolean append = false;
 
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
@@ -142,12 +151,19 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 try {
                     ProcessBuilder pb = new ProcessBuilder(commands);
                     pb.directory(currentDir);
-                    if (redirect && outFile != null) {
+                    if (append && outFile != null) {
+                        // APPEND mode
+                        pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
+                    }
+                    else if (redirect && outFile != null) {
+                        // OVERWRITE mode
                         pb.redirectOutput(new File(outFile));
-                        //pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-                    } else {
+                    }
+                    else {
+                        // no redirection
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                     }
+
 
                     if (redirectErr && errFile != null) {
                         pb.redirectError(new File(errFile));
@@ -329,6 +345,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 continue;
             }
 
+
+
             // stderr redirection
             if (token.equals("2>")) {
                 errFile = result.get(i + 1);
@@ -336,6 +354,25 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 continue;
             } else if (token.startsWith("2>")) {
                 errFile = token.substring(2);
+                continue;
+            }
+
+            // stdout append
+            if (token.equals(">>") || token.equals("1>>")) {
+                outFile = result.get(i + 1);
+                cleaned.add("__APPEND__");
+                cleaned.add(outFile);
+                i++;
+                continue;
+            } else if (token.startsWith(">>")) {
+                outFile = token.substring(2);
+                cleaned.add("__APPEND__");
+                cleaned.add(outFile);
+                continue;
+            } else if (token.startsWith("1>>")) {
+                outFile = token.substring(3);
+                cleaned.add("__APPEND__");
+                cleaned.add(outFile);
                 continue;
             }
             cleaned.add(token);
@@ -351,11 +388,13 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cleaned.add(errFile);
         }
 
+
+
         return cleaned;
     }
 
-    static void writeToFile(String file, String content) {
-        try (FileWriter fw = new FileWriter(file)) {
+    static void writeToFile(String file, String content, boolean append) {
+        try (FileWriter fw = new FileWriter(file, append)) {
             fw.write(content);
         } catch (IOException e) {
             System.out.println("Error writing to file");
