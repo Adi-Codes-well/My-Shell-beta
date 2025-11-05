@@ -200,11 +200,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cmdList = cmdList.subList(0, cmdList.size() - 2);
         }
 
-        // ✅ move after all detections
-        final boolean fRedirectErr = redirectErr;
-        final boolean fAppendErr = appendErr;
-        final String fErrFile = errFile;
-
         // ✅ Check if stdout redirection path is valid
         boolean invalidOutputPath = false;
         if (outFile != null) {
@@ -227,11 +222,10 @@ static File currentDir = new File(System.getProperty("user.dir"));
             File file = new File(dir, cmd);
             if (file.exists() && file.canExecute()) {
                 try {
-                    // ✅ Always use latest cmdList
                     ProcessBuilder pb = new ProcessBuilder(cmdList);
                     pb.directory(currentDir);
 
-                    // stdout redirection
+                    // ✅ stdout redirection handling
                     if (!invalidOutputPath && append && outFile != null)
                         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
                     else if (!invalidOutputPath && redirect && outFile != null)
@@ -239,15 +233,15 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     else
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 
-                    // stderr redirection
-                    if (fRedirectErr && fErrFile != null) {
-                        File errTarget = new File(fErrFile);
+                    // ✅ stderr redirection handling (fixed)
+                    if (redirectErr && errFile != null) {
+                        File errTarget = new File(errFile);
                         File parent = errTarget.getParentFile();
 
                         if (parent != null && !parent.exists()) {
                             pb.redirectError(nullFile); // discard silently
                         } else {
-                            if (fAppendErr)
+                            if (appendErr)
                                 pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
                             else
                                 pb.redirectError(errTarget);
