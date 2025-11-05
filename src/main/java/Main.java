@@ -118,6 +118,17 @@ static File currentDir = new File(System.getProperty("user.dir"));
         String path = System.getenv("PATH");
         String[] dirs = path.split(":");
 
+        boolean redirectErr = false;
+        String errFile = null;
+
+        List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
+        if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
+            redirectErr = true;
+            errFile = cmdList.get(cmdList.size() - 1);
+            cmdList = cmdList.subList(0, cmdList.size() - 2);
+            commands = cmdList.toArray(new String[0]);
+        }
+
         for (String dir : dirs) {
             File file = new File(dir, cmd);
             if (file.exists() && file.canExecute()) {
@@ -127,9 +138,9 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     pb.directory(currentDir);
                     if (redirect && outFile != null) {
                         pb.redirectOutput(new File(outFile));
-                        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+                        //pb.redirectError(ProcessBuilder.Redirect.INHERIT);
                     } else {
-                        pb.inheritIO();
+                        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                     }
 
                     Process p = pb.start();
@@ -193,8 +204,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
         StringBuilder current = new StringBuilder();
         boolean inSingle = false;
         boolean inDouble = false;
-
-
 
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
@@ -288,9 +297,9 @@ static File currentDir = new File(System.getProperty("user.dir"));
             result.add(current.toString());
         }
 
-
         List<String> cleaned = new ArrayList<>();
         String outFile = null;
+        String errFile = null;
 
         for (int i = 0; i < result.size(); i++) {
             String token = result.get(i);
@@ -306,12 +315,27 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 outFile = token.substring(2);
                 continue;
             }
+
+            // stderr redirection
+            if (token.equals("2>")) {
+                errFile = result.get(i + 1);
+                i++;
+                continue;
+            } else if (token.startsWith("2>")) {
+                errFile = token.substring(2);
+                continue;
+            }
             cleaned.add(token);
         }
 
         if (outFile != null) {
             cleaned.add("__REDIR__");
             cleaned.add(outFile);
+        }
+
+        if (errFile != null) {
+            cleaned.add("__REDIR_ERR__");
+            cleaned.add(errFile);
         }
 
         return cleaned;
