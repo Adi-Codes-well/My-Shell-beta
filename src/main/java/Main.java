@@ -507,7 +507,6 @@ public class Main {
                 cleaned.add(err);
             }
         }
-
         return cleaned;
     }
 
