@@ -50,7 +50,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     cd(commands);
                     break;
                 default:
-                    runExternalCommand(commands);
+                    runExternalCommand(commands, redirect, outFile);
                     break;
             }
         }
