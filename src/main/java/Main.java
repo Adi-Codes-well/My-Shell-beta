@@ -169,7 +169,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     if (append && outFile != null) {
                         // APPEND mode
                         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
-                        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+                        pb.redirectError(ProcessBuilder.Redirect.DISCARD);
                     }
                     else if (redirect && outFile != null) {
                         // OVERWRITE mode
@@ -177,7 +177,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     }
                     else {
                         // no redirection
-                        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+                        pb.redirectError(ProcessBuilder.Redirect.DISCARD);
                     }
 
 
