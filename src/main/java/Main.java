@@ -551,10 +551,11 @@ public class Main {
     }
 
     static void writeToFile(String file, String content, boolean append) {
-        try (FileWriter fw = new FileWriter(file, append)) {
-            fw.write(content);
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, append))) {
+            bw.write(content);
+            bw.flush(); // ensure it's written immediately
         } catch (IOException e) {
-            System.out.println("Error writing to file");
+            // do NOT print errors to stdout, silent fail per POSIX shell
         }
     }
 }
