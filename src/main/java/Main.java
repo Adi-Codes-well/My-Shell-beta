@@ -61,12 +61,21 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     }
 
                     if ((redirect || append) && outFile != null) {
+                        File target = new File(outFile);
+                        File parent = target.getParentFile();
+
+                        // ✅ match POSIX: silently ignore if directory doesn’t exist
+                        if (parent != null && !parent.exists()) {
+                            return;
+                        }
+
                         StringBuilder sb = new StringBuilder();
                         for (int i = 1; i < commands.length; i++) {
                             if (i > 1) sb.append(" ");
                             sb.append(commands[i]);
                         }
                         sb.append("\n");
+
                         writeToFile(outFile, sb.toString(), append);
                     } else {
                         echo(commands);
