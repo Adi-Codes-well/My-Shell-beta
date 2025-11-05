@@ -41,24 +41,50 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     System.exit(Integer.parseInt(commands[1]));
                     break;
                 case "echo": {
+                    // operate on a mutable list copy
                     List<String> echoList = new ArrayList<>(Arrays.asList(commands));
 
-                    boolean appendErr = false;
+                    // flags & filenames
+                    boolean outAppend = false;
+                    boolean outRedirect = false;
+                    String outFileTmp = null;
+
+                    boolean errAppend = false;
                     String errFileTmp = null;
 
-                    // ✅ Detect stderr redirection markers and remove them
-                    if (echoList.size() >= 2) {
+                    // detect markers at the end repeatedly (allow both stdout+stderr in any order)
+                    boolean changed = true;
+                    while (changed && echoList.size() >= 2) {
+                        changed = false;
                         String marker = echoList.get(echoList.size() - 2);
-                        if (marker.equals("__REDIR_ERR__") || marker.equals("__APPEND_ERR__")) {
-                            appendErr = marker.equals("__APPEND_ERR__");
-                            errFileTmp = echoList.get(echoList.size() - 1);
+                        String fname = echoList.get(echoList.size() - 1);
+                        if (marker.equals("__APPEND__")) {
+                            outAppend = true;
+                            outFileTmp = fname;
                             echoList = echoList.subList(0, echoList.size() - 2);
+                            changed = true;
+                        } else if (marker.equals("__REDIR__")) {
+                            outRedirect = true;
+                            outFileTmp = fname;
+                            echoList = echoList.subList(0, echoList.size() - 2);
+                            changed = true;
+                        } else if (marker.equals("__APPEND_ERR__")) {
+                            errAppend = true;
+                            errFileTmp = fname;
+                            echoList = echoList.subList(0, echoList.size() - 2);
+                            changed = true;
+                        } else if (marker.equals("__REDIR_ERR__")) {
+                            errAppend = false;
+                            errFileTmp = fname;
+                            echoList = echoList.subList(0, echoList.size() - 2);
+                            changed = true;
                         }
                     }
 
+                    // rebuild commands for printing
                     commands = echoList.toArray(new String[0]);
 
-                    // ✅ Build normal echo output
+                    // Build normal echo output
                     StringBuilder echoOut = new StringBuilder();
                     for (int i = 1; i < commands.length; i++) {
                         if (i > 1) echoOut.append(" ");
@@ -66,7 +92,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     }
                     echoOut.append("\n");
 
-                    // ✅ If stderr redirection detected → write to errFile
+                    // stderr handling first (as tests expect these appended)
                     if (errFileTmp != null) {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
@@ -77,17 +103,16 @@ static File currentDir = new File(System.getProperty("user.dir"));
                                 fw.write(echoOut.toString());
                             } catch (IOException ignored) {}
                         } else {
-                            // append or overwrite stderr file
-                            writeToFile(errFileTmp, echoOut.toString(), appendErr);
+                            writeToFile(errFileTmp, echoOut.toString(), errAppend);
                         }
                     }
 
-                    // ✅ Always print to stdout (POSIX behavior)
+                    // Always print to stdout (POSIX)
                     System.out.print(echoOut.toString());
 
-                    // ✅ Handle stdout redirection (>, >>)
-                    if ((redirect || append) && outFile != null) {
-                        File target = new File(outFile);
+                    // stdout handling
+                    if (outFileTmp != null) {
+                        File target = new File(outFileTmp);
                         File parent = target.getParentFile();
 
                         if (parent != null && !parent.exists()) {
@@ -95,12 +120,13 @@ static File currentDir = new File(System.getProperty("user.dir"));
                                 fw.write(echoOut.toString());
                             } catch (IOException ignored) {}
                         } else {
-                            writeToFile(outFile, echoOut.toString(), append);
+                            writeToFile(outFileTmp, echoOut.toString(), outAppend);
                         }
                     }
 
                     break;
                 }
+
 
                 case "type":
                     type(commands);
@@ -173,19 +199,18 @@ static File currentDir = new File(System.getProperty("user.dir"));
         boolean redirectErr = false;
         boolean appendErr = false;
         String errFile = null;
-        boolean append = false;
+        boolean appendOut = false;
 
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
 
-        // Detect append stderr redirection (2>>)
+        // --- stderr append (2>>) ---
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__APPEND_ERR__")) {
             redirectErr = true;
             appendErr = true;
             errFile = cmdList.get(cmdList.size() - 1);
             cmdList = cmdList.subList(0, cmdList.size() - 2);
         }
-
-        // Detect normal stderr redirection (2>)
+        // --- stderr overwrite (2>) ---
         else if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
             redirectErr = true;
             appendErr = false;
@@ -193,26 +218,28 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cmdList = cmdList.subList(0, cmdList.size() - 2);
         }
 
-        // Detect append stdout (>>)
+        // --- stdout append (>>) ---
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__APPEND__")) {
-            append = true;
+            appendOut = true;
             outFile = cmdList.get(cmdList.size() - 1);
             cmdList = cmdList.subList(0, cmdList.size() - 2);
         }
 
-        // ✅ Check if stdout redirection path is valid
-        boolean invalidOutputPath = false;
-        if (outFile != null) {
-            File target = new File(outFile);
-            File parent = target.getParentFile();
-            if (parent != null && !parent.exists()) invalidOutputPath = true;
+        // --- stdout overwrite (>) ---
+        if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR__")) {
+            redirect = true;
+            outFile = cmdList.get(cmdList.size() - 1);
+            cmdList = cmdList.subList(0, cmdList.size() - 2);
         }
 
-        // ✅ Check if stderr redirection path is valid
-        boolean invalidErrPath = false;
+        // check paths
+        boolean invalidOutPath = false, invalidErrPath = false;
+        if (outFile != null) {
+            File parent = new File(outFile).getParentFile();
+            if (parent != null && !parent.exists()) invalidOutPath = true;
+        }
         if (errFile != null) {
-            File target = new File(errFile);
-            File parent = target.getParentFile();
+            File parent = new File(errFile).getParentFile();
             if (parent != null && !parent.exists()) invalidErrPath = true;
         }
 
@@ -225,21 +252,20 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     ProcessBuilder pb = new ProcessBuilder(cmdList);
                     pb.directory(currentDir);
 
-                    // ✅ stdout redirection handling
-                    if (!invalidOutputPath && append && outFile != null)
+                    // stdout redirection
+                    if (!invalidOutPath && appendOut && outFile != null)
                         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
-                    else if (!invalidOutputPath && redirect && outFile != null)
+                    else if (!invalidOutPath && redirect && outFile != null)
                         pb.redirectOutput(new File(outFile));
                     else
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 
-                    // ✅ stderr redirection handling (fixed)
+                    // stderr redirection
                     if (redirectErr && errFile != null) {
                         File errTarget = new File(errFile);
                         File parent = errTarget.getParentFile();
-
                         if (parent != null && !parent.exists()) {
-                            pb.redirectError(nullFile); // discard silently
+                            pb.redirectError(nullFile);
                         } else {
                             if (appendErr)
                                 pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
@@ -252,9 +278,9 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
                     Process p = pb.start();
                     p.waitFor();
+                    return;
 
                 } catch (Exception ignored) {}
-                return;
             }
         }
 
