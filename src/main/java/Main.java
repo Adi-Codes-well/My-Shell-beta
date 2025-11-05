@@ -190,6 +190,7 @@ public class Main {
                 appendOut = true;
                 redirectOut = true;
                 outFileName = commands[++i];
+                i+=2;
                 continue;
             }
 
@@ -197,6 +198,7 @@ public class Main {
                 appendOut = false;
                 redirectOut = true;
                 outFileName = commands[++i];
+                i+=2;
                 continue;
             }
 
@@ -204,6 +206,7 @@ public class Main {
                 appendErr = true;
                 redirectErr = true;
                 errFileName = commands[++i];
+                i+=2;
                 continue;
             }
 
@@ -211,6 +214,7 @@ public class Main {
                 appendErr = false;
                 redirectErr = true;
                 errFileName = commands[++i];
+                i+=2;
                 continue;
             }
 
