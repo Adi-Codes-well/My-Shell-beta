@@ -163,6 +163,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
         boolean inSingle = false;
         boolean inDouble = false;
 
+
+
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
@@ -255,7 +257,33 @@ static File currentDir = new File(System.getProperty("user.dir"));
             result.add(current.toString());
         }
 
-        return result;
+
+        List<String> cleaned = new ArrayList<>();
+        String outFile = null;
+
+        for (int i = 0; i < result.size(); i++) {
+            String token = result.get(i);
+
+            if (token.equals(">") || token.equals("1>")) {
+                outFile = result.get(i + 1);
+                i++;
+                continue;
+            } else if (token.startsWith(">")) {
+                outFile = token.substring(1);
+                continue;
+            } else if (token.startsWith("1>")) {
+                outFile = token.substring(2);
+                continue;
+            }
+            cleaned.add(token);
+        }
+
+        if (outFile != null) {
+            cleaned.add("__REDIR__");
+            cleaned.add(outFile);
+        }
+
+        return cleaned;
     }
 
 }
