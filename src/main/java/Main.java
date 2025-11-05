@@ -38,8 +38,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 commands = parsed.toArray(new String[0]);
             }
 
-
-
             switch (commands[0]) {
                 case "exit":
                     System.exit(Integer.parseInt(commands[1]));
