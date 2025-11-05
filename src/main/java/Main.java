@@ -164,7 +164,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
             if (file.exists() && file.canExecute()) {
 
                 try {
-                    if ((redirect || append) && outFile != null) {
+                    // Always check if output file is invalid — even if flags got reset upstream
+                    if (outFile != null) {
                         File target = new File(outFile);
                         File parent = target.getParentFile();
 
@@ -172,6 +173,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                             return; // silent fail
                         }
                     }
+
 
                     ProcessBuilder pb = new ProcessBuilder(commands);
                     pb.directory(currentDir);
