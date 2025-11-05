@@ -79,34 +79,16 @@ public class Main {
                     if (errFileTmp != null) {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
-
-                        // Determine parent directory (or current dir if none)
-                        if (parent == null) parent = currentDir;
-
-                        // If parent doesn't exist or isn't a directory, discard to /dev/null
-                        if (!parent.exists() || !parent.isDirectory()) {
-                            try (BufferedWriter bw = new BufferedWriter(new FileWriter("/dev/null", true))) {
-                                bw.write(echoOut.toString());
-                                bw.flush();
-                            } catch (IOException ignored) {}
-                        } else {
-                            try {
-                                // POSIX: create the file if it doesn’t exist (both > and >>)
-                                if (!target.exists()) {
-                                    target.createNewFile();
-                                }
-
-                                // append or overwrite depending on mode
-                                writeToFile(errFileTmp, echoOut.toString(), errAppend);
-                            } catch (IOException ignored) {}
+                        // POSIX behavior: if directory doesn’t exist, silently discard any stderr output
+                        if (parent != null && !parent.exists()) {
+                            // do nothing (discard)
                         }
                     }
 
-                    // Only print to stdout if no stderr redirection
-                    if (errFileTmp == null) {
+                    // Always print to stdout unless stdout is redirected
+                    if (outFileTmp == null) {
                         System.out.print(echoOut.toString());
                     }
-
 
                     // stdout handling for builtin echo
                     if (outFileTmp != null) {
