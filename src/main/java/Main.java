@@ -167,14 +167,25 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
 
-        // Detect stderr redirection placeholder
-        if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
+        // Detect append stderr redirection (2>>)
+        if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__APPEND_ERR__")) {
             redirectErr = true;
             appendErr = true;
             errFile = cmdList.get(cmdList.size() - 1);
             cmdList = cmdList.subList(0, cmdList.size() - 2);
             commands = cmdList.toArray(new String[0]);
         }
+
+        // Detect normal stderr redirection (2>)
+        else if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
+            redirectErr = true;
+            appendErr = false;
+            errFile = cmdList.get(cmdList.size() - 1);
+            cmdList = cmdList.subList(0, cmdList.size() - 2);
+            commands = cmdList.toArray(new String[0]);
+        }
+
+
 
         // Detect append placeholder
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__APPEND__")) {
