@@ -467,13 +467,18 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cleaned.add(out);
         }
 
-// Handle stderr overwrite (2>) if not append
-        if (err != null && !appendErr &&
-                !cleaned.contains("__APPEND_ERR__") &&
-                !cleaned.contains("__REDIR_ERR__")) {
-            cleaned.add("__REDIR_ERR__");
-            cleaned.add(err);
+        // Handle stderr overwrite (2>) if not append AND no stderr redirection exists
+        boolean hasErrRedir = cleaned.contains("__APPEND_ERR__") || cleaned.contains("__REDIR_ERR__");
+        if (err != null && !hasErrRedir) {
+            if (appendErr) {
+                cleaned.add("__APPEND_ERR__");
+                cleaned.add(err);
+            } else {
+                cleaned.add("__REDIR_ERR__");
+                cleaned.add(err);
+            }
         }
+
 
         return cleaned;
     }
