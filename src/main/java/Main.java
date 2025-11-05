@@ -22,15 +22,17 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
             // detect append first
             boolean append = false;
+            boolean redirect = false;
             if (parsed.size() >= 2 && parsed.get(parsed.size() - 2).equals("__APPEND__")) {
                 append = true;
+                redirect = true;
                 outFile = parsed.get(parsed.size() - 1);
                 parsed = parsed.subList(0, parsed.size() - 2);
                 commands = parsed.toArray(new String[0]);
             }
 
 // detect overwrite only if not append
-            boolean redirect = false;
+
             if (!append && parsed.size() >= 2 && parsed.get(parsed.size() - 2).equals("__REDIR__")) {
                 redirect = true;
                 outFile = parsed.get(parsed.size() - 1);
