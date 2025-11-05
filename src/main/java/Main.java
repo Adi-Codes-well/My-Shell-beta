@@ -36,15 +36,21 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     System.exit(Integer.parseInt(commands[1]));
                     break;
                 case "echo":
+                    List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
+                    if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
+                        String errFileTmp = cmdList.get(cmdList.size() - 1);
+                        cmdList = cmdList.subList(0, cmdList.size() - 2);
+                        commands = cmdList.toArray(new String[0]);
+                        writeToFile(errFileTmp, ""); // echo normally has no error, so empty stderr
+                    }
+
                     if (redirect && outFile != null) {
-                        // capture echo output into string
                         StringBuilder sb = new StringBuilder();
                         for (int i = 1; i < commands.length; i++) {
                             if (i > 1) sb.append(" ");
                             sb.append(commands[i]);
                         }
                         sb.append("\n");
-
                         writeToFile(outFile, sb.toString());
                     } else {
                         echo(commands);
