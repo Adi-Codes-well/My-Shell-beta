@@ -175,10 +175,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         String errFile = null;
         boolean append = false;
 
-        // Make local copies before looping
-        final boolean fRedirectErr = redirectErr;
-        final boolean fAppendErr = appendErr;
-        final String fErrFile = errFile;
+
 
 
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
@@ -209,6 +206,10 @@ static File currentDir = new File(System.getProperty("user.dir"));
             commands = cmdList.toArray(new String[0]);
         }
 
+        // Make local copies before looping
+        final boolean fRedirectErr = redirectErr;
+        final boolean fAppendErr = appendErr;
+        final String fErrFile = errFile;
         // ✅ Check if stdout redirection path is valid
         boolean invalidOutputPath = false;
         if (outFile != null) {
