@@ -183,43 +183,44 @@ public class Main {
         List<String> cmdList = new ArrayList<>();
 
         // Scan for redirection markers anywhere in the command
-        for (int i = 0; i < commands.length; i++) {
+        for (int i = 0; i < commands.length; ) {
             String token = commands[i];
-            // Redirection detection
+
             if (token.equals("__APPEND__") && i + 1 < commands.length) {
                 appendOut = true;
                 redirectOut = true;
-                outFileName = commands[++i];
-                i+=2;
+                outFileName = commands[i + 1];
+                i += 2;
                 continue;
             }
 
             if (token.equals("__REDIR__") && i + 1 < commands.length) {
                 appendOut = false;
                 redirectOut = true;
-                outFileName = commands[++i];
-                i+=2;
+                outFileName = commands[i + 1];
+                i += 2;
                 continue;
             }
 
             if (token.equals("__APPEND_ERR__") && i + 1 < commands.length) {
                 appendErr = true;
                 redirectErr = true;
-                errFileName = commands[++i];
-                i+=2;
+                errFileName = commands[i + 1];
+                i += 2;
                 continue;
             }
 
             if (token.equals("__REDIR_ERR__") && i + 1 < commands.length) {
                 appendErr = false;
                 redirectErr = true;
-                errFileName = commands[++i];
-                i+=2;
+                errFileName = commands[i + 1];
+                i += 2;
                 continue;
             }
 
             // Normal command tokens
             cmdList.add(token);
+            i++;
         }
 
         // Build target File objects if present
