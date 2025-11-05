@@ -36,7 +36,19 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     System.exit(Integer.parseInt(commands[1]));
                     break;
                 case "echo":
-                    echo(commands);
+                    if (redirect && outFile != null) {
+                        // capture echo output into string
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 1; i < commands.length; i++) {
+                            if (i > 1) sb.append(" ");
+                            sb.append(commands[i]);
+                        }
+                        sb.append("\n");
+
+                        writeToFile(outFile, sb.toString());
+                    } else {
+                        echo(commands);
+                    }
                     break;
                 case "type":
                     type(commands);
@@ -302,6 +314,14 @@ static File currentDir = new File(System.getProperty("user.dir"));
         }
 
         return cleaned;
+    }
+
+    static void writeToFile(String file, String content) {
+        try (FileWriter fw = new FileWriter(file)) {
+            fw.write(content);
+        } catch (IOException e) {
+            System.out.println("Error writing to file");
+        }
     }
 
 }
