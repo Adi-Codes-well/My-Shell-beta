@@ -229,7 +229,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                     }
 
-                    // ✅ stderr redirection if needed
                     if (redirectErr && errFile != null) {
                         File errTarget = new File(errFile);
                         pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
