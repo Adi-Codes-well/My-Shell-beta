@@ -92,15 +92,16 @@ public class Main {
                             } catch (IOException ignored) {}
                         } else {
                             try {
-                                // make sure file exists before append
-                                if (errAppend && !target.exists()) {
+                                // POSIX: create file if it doesn’t exist (both > and >>)
+                                if (!target.exists()) {
                                     target.createNewFile();
                                 }
+
+                                // append or overwrite depending on mode
                                 writeToFile(errFileTmp, echoOut.toString(), errAppend);
                             } catch (IOException ignored) {}
                         }
                     }
-
 
                     // Only print to stdout if no stderr redirection
                     if (errFileTmp == null) {
