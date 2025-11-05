@@ -186,37 +186,43 @@ public class Main {
         for (int i = 0; i < commands.length; i++) {
             String token = commands[i];
 
-            if (token.equals("__APPEND__")) {
-                appendOut = true;
-                redirectOut = true;
-                if (i + 1 < commands.length) outFileName = commands[++i];
-                continue;
-            }
-            if (token.equals("__REDIR__")) {
-                appendOut = false;
-                redirectOut = true;
-                if (i + 1 < commands.length) outFileName = commands[++i];
-                continue;
-            }
-            if (token.equals("__APPEND_ERR__")) {
-                appendErr = true;
-                redirectErr = true;
-                if (i + 1 < commands.length) {
-                    errFileName = commands[++i];
-                }
-                continue;
-            }
-            if (token.equals("__REDIR_ERR__")) {
-                appendErr = false;
-                redirectErr = true;
-                if (i + 1 < commands.length) {
-                    errFileName = commands[++i];
-                }
-                continue;
-            }
+            switch (token) {
+                case "__APPEND__":
+                    appendOut = true;
+                    redirectOut = true;
+                    if (i + 1 < commands.length) {
+                        outFileName = commands[++i];
+                    }
+                    break;
 
+                case "__REDIR__":
+                    appendOut = false;
+                    redirectOut = true;
+                    if (i + 1 < commands.length) {
+                        outFileName = commands[++i];
+                    }
+                    break;
 
-            cmdList.add(token);
+                case "__APPEND_ERR__":
+                    appendErr = true;
+                    redirectErr = true;
+                    if (i + 1 < commands.length) {
+                        errFileName = commands[++i];
+                    }
+                    break;
+
+                case "__REDIR_ERR__":
+                    appendErr = false;
+                    redirectErr = true;
+                    if (i + 1 < commands.length) {
+                        errFileName = commands[++i];
+                    }
+                    break;
+
+                default:
+                    cmdList.add(token);
+                    break;
+            }
         }
 
         // Build target File objects if present
