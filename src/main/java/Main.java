@@ -161,6 +161,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         String[] dirs = path.split(":");
 
         boolean redirectErr = false;
+        boolean appendErr = false;
         String errFile = null;
         boolean append = false;
 
@@ -169,6 +170,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         // Detect stderr redirection placeholder
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
             redirectErr = true;
+            appendErr = true;
             errFile = cmdList.get(cmdList.size() - 1);
             cmdList = cmdList.subList(0, cmdList.size() - 2);
             commands = cmdList.toArray(new String[0]);
@@ -231,7 +233,10 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
                     if (redirectErr && errFile != null) {
                         File errTarget = new File(errFile);
-                        pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
+                        if (appendErr)
+                            pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
+                        else
+                            pb.redirectError(errTarget);
                     } else {
                         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
                     }
@@ -366,7 +371,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         for (int i = 0; i < tokens.size(); i++) {
             String t = tokens.get(i);
 
-            // append >>
+            // append stdout >>
             if (t.equals(">>") || t.equals("1>>")) {
                 append = true;
                 out = tokens.get(++i);
@@ -386,6 +391,20 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 out = t.substring(3);
                 cleaned.add("__APPEND__");
                 cleaned.add(out);
+                continue;
+            }
+
+            // append stderr 2>>
+            if (t.equals("2>>")) {
+                err = tokens.get(++i);
+                cleaned.add("__APPEND_ERR__");
+                cleaned.add(err);
+                continue;
+            }
+            if (t.startsWith("2>>")) {
+                err = t.substring(3);
+                cleaned.add("__APPEND_ERR__");
+                cleaned.add(err);
                 continue;
             }
 
@@ -421,7 +440,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cleaned.add(out);
         }
 
-        if (err != null) {
+        if (err != null && !cleaned.contains("__APPEND_ERR__")) {
             cleaned.add("__REDIR_ERR__");
             cleaned.add(err);
         }
