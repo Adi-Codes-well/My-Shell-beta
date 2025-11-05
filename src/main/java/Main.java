@@ -80,8 +80,8 @@ public class Main {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
 
-                        if (parent != null && !parent.exists()) {
-                            // silently discard stderr by writing to /dev/null (as test expects)
+                        if (parent == null || !parent.exists()) {
+                            // discard completely
                             try (FileWriter fw = new FileWriter("/dev/null", true)) {
                                 fw.write(echoOut.toString());
                             } catch (IOException ignored) {}
