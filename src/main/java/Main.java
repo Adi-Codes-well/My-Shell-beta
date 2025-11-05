@@ -124,7 +124,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     cd(commands);
                     break;
                 default:
-                    runExternalCommand(commands, outFile);
+                    runExternalCommand(commands);
                     break;
             }
         }
@@ -175,7 +175,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         System.out.println(input + ": command not found");
     }
 
-    static void runExternalCommand(String[] commands, String outFile) {
+    static void runExternalCommand(String[] commands) {
         String cmd = commands[0];
         String path = System.getenv("PATH");
         String[] dirs = path.split(":");
@@ -390,28 +390,28 @@ static File currentDir = new File(System.getProperty("user.dir"));
         // Final result + placeholders for internal redirection markers
         List<String> cleaned = new ArrayList<>();
         String out = null, err = null;
-        boolean append = false;
+        boolean appendOut = false, appendErr = false;
 
         for (int i = 0; i < tokens.size(); i++) {
             String t = tokens.get(i);
 
-            // append stdout >>
+            // append stdout >> or 1>>
             if (t.equals(">>") || t.equals("1>>")) {
-                append = true;
+                appendOut = true;
                 out = tokens.get(++i);
                 cleaned.add("__APPEND__");
                 cleaned.add(out);
                 continue;
             }
             if (t.startsWith(">>")) {
-                append = true;
+                appendOut = true;
                 out = t.substring(2);
                 cleaned.add("__APPEND__");
                 cleaned.add(out);
                 continue;
             }
             if (t.startsWith("1>>")) {
-                append = true;
+                appendOut = true;
                 out = t.substring(3);
                 cleaned.add("__APPEND__");
                 cleaned.add(out);
@@ -420,19 +420,21 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
             // append stderr 2>>
             if (t.equals("2>>")) {
+                appendErr = true;
                 err = tokens.get(++i);
                 cleaned.add("__APPEND_ERR__");
                 cleaned.add(err);
                 continue;
             }
             if (t.startsWith("2>>")) {
+                appendErr = true;
                 err = t.substring(3);
                 cleaned.add("__APPEND_ERR__");
                 cleaned.add(err);
                 continue;
             }
 
-            // normal redirect >
+            // normal stdout redirect > or 1>
             if (t.equals(">") || t.equals("1>")) {
                 out = tokens.get(++i);
                 continue;
@@ -459,12 +461,16 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cleaned.add(t);
         }
 
-        if (out != null && !append) {
+// Handle stdout overwrite (>) if not append
+        if (out != null && !appendOut) {
             cleaned.add("__REDIR__");
             cleaned.add(out);
         }
 
-        if (err != null && !cleaned.contains("__APPEND_ERR__") && !cleaned.contains("__REDIR_ERR__")) {
+// Handle stderr overwrite (2>) if not append
+        if (err != null && !appendErr &&
+                !cleaned.contains("__APPEND_ERR__") &&
+                !cleaned.contains("__REDIR_ERR__")) {
             cleaned.add("__REDIR_ERR__");
             cleaned.add(err);
         }
