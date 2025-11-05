@@ -236,12 +236,14 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     else
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 
-                    // ✅ stderr redirection handling
+                    // ✅ stderr redirection handling (final fix)
                     if (redirectErr && errFile != null) {
-                        if (invalidErrPath) {
-                            pb.redirectError(nullFile); // discard
+                        File errTarget = new File(errFile);
+                        File parent = errTarget.getParentFile();
+
+                        if (parent != null && !parent.exists()) {
+                            pb.redirectError(nullFile); // discard silently
                         } else {
-                            File errTarget = new File(errFile);
                             if (appendErr)
                                 pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
                             else
@@ -253,6 +255,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
                     Process p = pb.start();
                     p.waitFor();
+
                 } catch (Exception ignored) {}
                 return;
             }
