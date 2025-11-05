@@ -195,9 +195,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
             commands = cmdList.toArray(new String[0]);
         }
 
-
-
-        // Detect append placeholder
+        // Detect append stdout (>>)
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__APPEND__")) {
             append = true;
             outFile = cmdList.get(cmdList.size() - 1);
@@ -205,36 +203,23 @@ static File currentDir = new File(System.getProperty("user.dir"));
             commands = cmdList.toArray(new String[0]);
         }
 
-        // ✅ Check if redirect target directory exists (silent ignore if not)
+        // ✅ Check if stdout redirection path is valid
         boolean invalidOutputPath = false;
         if (outFile != null) {
             File target = new File(outFile);
             File parent = target.getParentFile();
-            if (parent != null && !parent.exists()) {
-                invalidOutputPath = true;
-            }
+            if (parent != null && !parent.exists()) invalidOutputPath = true;
+        }
+
+        // ✅ Check if stderr redirection path is valid
+        boolean invalidErrPath = false;
+        if (errFile != null) {
+            File target = new File(errFile);
+            File parent = target.getParentFile();
+            if (parent != null && !parent.exists()) invalidErrPath = true;
         }
 
         File nullFile = new File("/dev/null");
-        if (invalidOutputPath) {
-            // disable real redirect, but discard stdout
-            redirect = false;
-            append = false;
-            outFile = null;
-
-            // force discarding output
-            ProcessBuilder pb = new ProcessBuilder(commands);
-            pb.directory(currentDir);
-            pb.redirectOutput(nullFile);
-            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-            try {
-                Process p = pb.start();
-                p.waitFor();
-            } catch (Exception ignored) {}
-            return;
-        }
-
-
 
         for (String dir : dirs) {
             File file = new File(dir, cmd);
@@ -243,23 +228,20 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     ProcessBuilder pb = new ProcessBuilder(commands);
                     pb.directory(currentDir);
 
-                    // ✅ Apply correct redirection logic
-                    if (!invalidOutputPath && append && outFile != null) {
+                    // ✅ stdout redirection handling
+                    if (!invalidOutputPath && append && outFile != null)
                         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
-                    } else if (!invalidOutputPath && redirect && outFile != null) {
+                    else if (!invalidOutputPath && redirect && outFile != null)
                         pb.redirectOutput(new File(outFile));
-                    } else {
+                    else
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-                    }
 
+                    // ✅ stderr redirection handling
                     if (redirectErr && errFile != null) {
-                        File errTarget = new File(errFile);
-                        File parent = errTarget.getParentFile();
-
-                        // ✅ if parent folder doesn't exist → discard stderr
-                        if (parent != null && !parent.exists()) {
-                            pb.redirectError(new File("/dev/null"));
+                        if (invalidErrPath) {
+                            pb.redirectError(nullFile); // discard
                         } else {
+                            File errTarget = new File(errFile);
                             if (appendErr)
                                 pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
                             else
@@ -271,9 +253,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
                     Process p = pb.start();
                     p.waitFor();
-                } catch (Exception e) {
-                    System.out.println("Error running command");
-                }
+                } catch (Exception ignored) {}
                 return;
             }
         }
