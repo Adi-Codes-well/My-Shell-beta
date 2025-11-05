@@ -186,34 +186,32 @@ public class Main {
         for (int i = 0; i < commands.length; i++) {
             String token = commands[i];
 
-            switch (token) {
-                case "__APPEND__":
-                    appendOut = true;
-                    redirectOut = true;
-                    if (i + 1 < commands.length) outFileName = commands[++i];
-                    break;
-
-                case "__REDIR__":
-                    appendOut = false;
-                    redirectOut = true;
-                    if (i + 1 < commands.length) outFileName = commands[++i];
-                    break;
-
-                case "__APPEND_ERR__":
-                    appendErr = true;
-                    redirectErr = true;
-                    if (i + 1 < commands.length) errFileName = commands[++i];
-                    break;
-
-                case "__REDIR_ERR__":
-                    appendErr = false;
-                    redirectErr = true;
-                    if (i + 1 < commands.length) errFileName = commands[++i];
-                    break;
-
-                default:
-                    cmdList.add(token);
+            if (token.equals("__APPEND__")) {
+                appendOut = true;
+                redirectOut = true;
+                if (i + 1 < commands.length) outFileName = commands[++i];
+                continue;
             }
+            if (token.equals("__REDIR__")) {
+                appendOut = false;
+                redirectOut = true;
+                if (i + 1 < commands.length) outFileName = commands[++i];
+                continue;
+            }
+            if (token.equals("__APPEND_ERR__")) {
+                appendErr = true;
+                redirectErr = true;
+                if (i + 1 < commands.length) errFileName = commands[++i];
+                continue;
+            }
+            if (token.equals("__REDIR_ERR__")) {
+                appendErr = false;
+                redirectErr = true;
+                if (i + 1 < commands.length) errFileName = commands[++i];
+                continue;
+            }
+
+            cmdList.add(token);
         }
 
         // Build target File objects if present
@@ -260,6 +258,7 @@ public class Main {
 
             Process p = pb.start();
             p.waitFor();
+            p.getErrorStream().close();
             return;
 
         } catch (IOException e) {
@@ -507,6 +506,7 @@ public class Main {
                 cleaned.add(err);
             }
         }
+
         return cleaned;
     }
 
