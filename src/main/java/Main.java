@@ -66,22 +66,24 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     }
                     echoOut.append("\n");
 
-                    // ✅ If stderr redirection detected
+                    // ✅ If stderr redirection detected → write to errFile
                     if (errFileTmp != null) {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
 
                         if (parent != null && !parent.exists()) {
-                            // silently discard
+                            // silently discard stderr
                             try (FileWriter fw = new FileWriter("/dev/null", true)) {
                                 fw.write(echoOut.toString());
                             } catch (IOException ignored) {}
                         } else {
-                            // append or overwrite based on mode
+                            // append or overwrite stderr file
                             writeToFile(errFileTmp, echoOut.toString(), appendErr);
                         }
-                        break; // done
                     }
+
+                    // ✅ Always print to stdout (POSIX behavior)
+                    System.out.print(echoOut.toString());
 
                     // ✅ Handle stdout redirection (>, >>)
                     if ((redirect || append) && outFile != null) {
@@ -95,10 +97,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         } else {
                             writeToFile(outFile, echoOut.toString(), append);
                         }
-                    } else {
-                        // Normal echo to stdout
-                        System.out.print(echoOut.toString());
                     }
+
                     break;
                 }
 
