@@ -20,22 +20,6 @@ static File currentDir = new File(System.getProperty("user.dir"));
 
             String outFile = null;
 
-            // detect append first
-            boolean append = false;
-            boolean redirect = false;
-
-
-// detect overwrite only if not append
-
-            if (!append && parsed.size() >= 2 && parsed.get(parsed.size() - 2).equals("__REDIR__")) {
-                redirect = true;
-                outFile = parsed.get(parsed.size() - 1);
-                parsed = parsed.subList(0, parsed.size() - 2);
-                commands = parsed.toArray(new String[0]);
-            }
-
-
-
             switch (commands[0]) {
                 case "exit":
                     System.exit(Integer.parseInt(commands[1]));
