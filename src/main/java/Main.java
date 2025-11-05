@@ -38,6 +38,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 commands = parsed.toArray(new String[0]);
             }
 
+
+
             switch (commands[0]) {
                 case "exit":
                     System.exit(Integer.parseInt(commands[1]));
@@ -151,7 +153,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         String errFile = null;
         boolean append = false;
 
-        // Extract redirections from commands
+        // --- 1. Re-parse Redirection Tokens (In case called directly, not from main loop) ---
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
 
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
@@ -167,27 +169,40 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cmdList = cmdList.subList(0, cmdList.size() - 2);
             commands = cmdList.toArray(new String[0]);
         }
+        // Note: The main loop already handles __REDIR__ and __APPEND__ detection and sets 'redirect'/'append' and 'outFile'.
+        // The code above re-extracts redirection tokens that might have been missed if 'commands' was updated by the main loop
+        // before the call, but it's safe to keep the logic simple by relying on the 'redirect', 'append', and 'outFile'
+        // passed in, which were correctly set by the main loop. The logic below is what matters most for the fix.
 
-        // ✅ Silent fail rule: if directory doesn't exist, do nothing & return
-        if (outFile != null) {
-            File target = new File(outFile);
-            File parent = target.getParentFile();
-            if (parent != null && !parent.exists()) {
-                return; // Silent no-op (POSIX behavior)
-            }
-        }
 
+        // --- 2. Iterate PATH and Execute ---
         for (String dir : dirs) {
             File file = new File(dir, cmd);
             if (file.exists() && file.canExecute()) {
+
                 try {
+                    // *** FIX: REMOVE THE SILENT FAIL CHECK FOR EXTERNAL COMMANDS ***
+                    // External commands must be run so they can output their own error
+                    // message (e.g., "ls: No such file or directory") to stderr.
+                /*
+                if (outFile != null) {
+                    File target = new File(outFile);
+                    File parent = target.getParentFile();
+
+                    if (parent != null && !parent.exists()) {
+                        return; // DELETED: This causes the silent fail error
+                    }
+                }
+                */
+
                     ProcessBuilder pb = new ProcessBuilder(commands);
                     pb.directory(currentDir);
 
-                    // stdout handling
+                    // stdout handling (Uses ProcessBuilder to handle the file operation)
                     if (append && outFile != null) {
                         pb.redirectOutput(ProcessBuilder.Redirect.appendTo(new File(outFile)));
-                    } else if (redirect && outFile != null) {
+                    } else if ((redirect || append) && outFile != null) {
+                        // Check for general redirection if append wasn't handled separately
                         pb.redirectOutput(new File(outFile));
                     } else {
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
@@ -208,10 +223,8 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 return;
             }
         }
-
         System.out.println(cmd + ": command not found");
     }
-
     static void pwd() {
         System.out.println(currentDir.getAbsolutePath());
     }
