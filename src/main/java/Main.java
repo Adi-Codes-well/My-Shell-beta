@@ -153,9 +153,9 @@ static File currentDir = new File(System.getProperty("user.dir"));
         String errFile = null;
         boolean append = false;
 
-        // ... (rest of the parameter parsing remains the same)
-
+        // Extract redirections from commands
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
+
         if (cmdList.size() >= 2 && cmdList.get(cmdList.size() - 2).equals("__REDIR_ERR__")) {
             redirectErr = true;
             errFile = cmdList.get(cmdList.size() - 1);
@@ -170,28 +170,19 @@ static File currentDir = new File(System.getProperty("user.dir"));
             commands = cmdList.toArray(new String[0]);
         }
 
+        // ✅ Silent fail rule: if directory doesn't exist, do nothing & return
+        if (outFile != null) {
+            File target = new File(outFile);
+            File parent = target.getParentFile();
+            if (parent != null && !parent.exists()) {
+                return; // Silent no-op (POSIX behavior)
+            }
+        }
+
         for (String dir : dirs) {
             File file = new File(dir, cmd);
             if (file.exists() && file.canExecute()) {
-
                 try {
-                    // REMOVING the silent fail check for external commands.
-                    // The external command (e.g., 'ls') should be allowed to
-                    // execute and report the "No such file or directory" error
-                    // to stderr, which the shell inherits.
-
-                /*
-                if (outFile != null) {
-                    File target = new File(outFile);
-                    File parent = target.getParentFile();
-
-                    if (parent != null && !parent.exists()) {
-                        return; // silent fail
-                    }
-                }
-                */
-
-
                     ProcessBuilder pb = new ProcessBuilder(commands);
                     pb.directory(currentDir);
 
@@ -219,8 +210,10 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 return;
             }
         }
+
         System.out.println(cmd + ": command not found");
     }
+
     static void pwd() {
         System.out.println(currentDir.getAbsolutePath());
     }
