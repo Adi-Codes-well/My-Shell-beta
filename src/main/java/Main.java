@@ -250,6 +250,12 @@ public class Main {
                     // directory doesn't exist -> discard to /dev/null
                     pb.redirectError(ProcessBuilder.Redirect.to(new File("/dev/null")));
                 } else {
+                    try {
+                        if (appendErr && !errTarget.exists()) {
+                            errTarget.createNewFile();  // ensure file exists before append
+                        }
+                    } catch (IOException ignored) {}
+
                     if (appendErr) {
                         pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
                     } else {
