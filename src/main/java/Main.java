@@ -201,15 +201,20 @@ public class Main {
             if (token.equals("__APPEND_ERR__")) {
                 appendErr = true;
                 redirectErr = true;
-                if (i + 1 < commands.length) errFileName = commands[++i];
+                if (i + 1 < commands.length) {
+                    errFileName = commands[++i];
+                }
                 continue;
             }
             if (token.equals("__REDIR_ERR__")) {
                 appendErr = false;
                 redirectErr = true;
-                if (i + 1 < commands.length) errFileName = commands[++i];
+                if (i + 1 < commands.length) {
+                    errFileName = commands[++i];
+                }
                 continue;
             }
+
 
             cmdList.add(token);
         }
@@ -258,7 +263,6 @@ public class Main {
 
             Process p = pb.start();
             p.waitFor();
-            p.getErrorStream().close();
             return;
 
         } catch (IOException e) {
