@@ -124,7 +124,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     cd(commands);
                     break;
                 default:
-                    runExternalCommand(commands, redirect, outFile);
+                    runExternalCommand(commands, outFile);
                     break;
             }
         }
@@ -175,7 +175,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
         System.out.println(input + ": command not found");
     }
 
-    static void runExternalCommand(String[] commands, boolean redirect, String outFile) {
+    static void runExternalCommand(String[] commands, String outFile) {
         String cmd = commands[0];
         String path = System.getenv("PATH");
         String[] dirs = path.split(":");
