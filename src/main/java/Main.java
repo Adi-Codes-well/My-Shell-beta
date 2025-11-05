@@ -191,32 +191,36 @@ public class Main {
                     appendOut = true;
                     redirectOut = true;
                     if (i + 1 < commands.length) {
-                        outFileName = commands[++i];
+                        outFileName = commands[i+1];
                     }
+                    i++;
                     break;
 
                 case "__REDIR__":
                     appendOut = false;
                     redirectOut = true;
                     if (i + 1 < commands.length) {
-                        outFileName = commands[++i];
+                        outFileName = commands[i+1];
                     }
+                    i++;
                     break;
 
                 case "__APPEND_ERR__":
                     appendErr = true;
                     redirectErr = true;
                     if (i + 1 < commands.length) {
-                        errFileName = commands[++i];
+                        errFileName = commands[i+1];
                     }
+                    i++;
                     break;
 
                 case "__REDIR_ERR__":
                     appendErr = false;
                     redirectErr = true;
                     if (i + 1 < commands.length) {
-                        errFileName = commands[++i];
+                        errFileName = commands[i+1];
                     }
+                    i++;
                     break;
 
                 default:
