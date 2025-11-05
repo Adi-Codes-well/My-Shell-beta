@@ -40,34 +40,25 @@ static File currentDir = new File(System.getProperty("user.dir"));
                 case "exit":
                     System.exit(Integer.parseInt(commands[1]));
                     break;
-                case "echo":
+                case "echo": {
                     List<String> echoList = new ArrayList<>(Arrays.asList(commands));
 
-                    // Handle stderr marker
-                    if (echoList.size() >= 2 && echoList.get(echoList.size() - 2).equals("__REDIR_ERR__")) {
-                        String errFileTmp = echoList.get(echoList.size() - 1);
-                        echoList = echoList.subList(0, echoList.size() - 2);
-                        commands = echoList.toArray(new String[0]);
-                        StringBuilder echoErrOut = new StringBuilder();
-                        for (int i = 1; i < commands.length; i++) {
-                            if (i > 1) echoErrOut.append(" ");
-                            echoErrOut.append(commands[i]);
+                    boolean appendErr = false;
+                    String errFileTmp = null;
+
+                    // ✅ Detect stderr redirection markers and remove them
+                    if (echoList.size() >= 2) {
+                        String marker = echoList.get(echoList.size() - 2);
+                        if (marker.equals("__REDIR_ERR__") || marker.equals("__APPEND_ERR__")) {
+                            appendErr = marker.equals("__APPEND_ERR__");
+                            errFileTmp = echoList.get(echoList.size() - 1);
+                            echoList = echoList.subList(0, echoList.size() - 2);
                         }
-                        echoErrOut.append("\n");
-                        writeToFile(errFileTmp, echoErrOut.toString(), true);
-                        continue; // skip normal echo
-
                     }
 
-                    // detect append again inside echo
-                    if (parsed.size() >= 2 && parsed.get(parsed.size() - 2).equals("__APPEND__")) {
-                        append = true;
-                        outFile = parsed.get(parsed.size() - 1);
-                        parsed = parsed.subList(0, parsed.size() - 2);
-                        commands = parsed.toArray(new String[0]);
-                    }
+                    commands = echoList.toArray(new String[0]);
 
-                    // Build echo output
+                    // ✅ Build normal echo output
                     StringBuilder echoOut = new StringBuilder();
                     for (int i = 1; i < commands.length; i++) {
                         if (i > 1) echoOut.append(" ");
@@ -75,10 +66,28 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     }
                     echoOut.append("\n");
 
-                    // If redirect or append
+                    // ✅ If stderr redirection detected
+                    if (errFileTmp != null) {
+                        File target = new File(errFileTmp);
+                        File parent = target.getParentFile();
+
+                        if (parent != null && !parent.exists()) {
+                            // silently discard
+                            try (FileWriter fw = new FileWriter("/dev/null", true)) {
+                                fw.write(echoOut.toString());
+                            } catch (IOException ignored) {}
+                        } else {
+                            // append or overwrite based on mode
+                            writeToFile(errFileTmp, echoOut.toString(), appendErr);
+                        }
+                        break; // done
+                    }
+
+                    // ✅ Handle stdout redirection (>, >>)
                     if ((redirect || append) && outFile != null) {
                         File target = new File(outFile);
                         File parent = target.getParentFile();
+
                         if (parent != null && !parent.exists()) {
                             try (FileWriter fw = new FileWriter("/dev/null", true)) {
                                 fw.write(echoOut.toString());
@@ -86,12 +95,13 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         } else {
                             writeToFile(outFile, echoOut.toString(), append);
                         }
-
                     } else {
-                        // normal echo
-                        echo(commands);
+                        // Normal echo to stdout
+                        System.out.print(echoOut.toString());
                     }
                     break;
+                }
+
                 case "type":
                     type(commands);
                     break;
