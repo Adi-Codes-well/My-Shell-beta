@@ -138,10 +138,17 @@ static File currentDir = new File(System.getProperty("user.dir"));
                     pb.directory(currentDir);
                     if (redirect && outFile != null) {
                         pb.redirectOutput(new File(outFile));
-                        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+                        //pb.redirectError(ProcessBuilder.Redirect.INHERIT);
                     } else {
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                     }
+
+                    if (redirectErr && errFile != null) {
+                        pb.redirectError(new File(errFile));
+                    } else {
+                        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+                    }
+
 
                     Process p = pb.start();
                     p.waitFor();
