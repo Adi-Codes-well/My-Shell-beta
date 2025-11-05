@@ -175,6 +175,12 @@ static File currentDir = new File(System.getProperty("user.dir"));
         String errFile = null;
         boolean append = false;
 
+        // Make local copies before looping
+        final boolean fRedirectErr = redirectErr;
+        final boolean fAppendErr = appendErr;
+        final String fErrFile = errFile;
+
+
         List<String> cmdList = new ArrayList<>(Arrays.asList(commands));
 
         // Detect append stderr redirection (2>>)
@@ -237,14 +243,14 @@ static File currentDir = new File(System.getProperty("user.dir"));
                         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 
                     // ✅ stderr redirection handling (final fix)
-                    if (redirectErr && errFile != null) {
-                        File errTarget = new File(errFile);
+                    if (fRedirectErr && fErrFile != null) {
+                        File errTarget = new File(fErrFile);
                         File parent = errTarget.getParentFile();
 
                         if (parent != null && !parent.exists()) {
                             pb.redirectError(nullFile); // discard silently
                         } else {
-                            if (appendErr)
+                            if (fAppendErr)
                                 pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
                             else
                                 pb.redirectError(errTarget);
@@ -451,7 +457,7 @@ static File currentDir = new File(System.getProperty("user.dir"));
             cleaned.add(out);
         }
 
-        if (err != null && !cleaned.contains("__APPEND_ERR__")) {
+        if (err != null && !cleaned.contains("__APPEND_ERR__") && !cleaned.contains("__REDIR_ERR__")) {
             cleaned.add("__REDIR_ERR__");
             cleaned.add(err);
         }
