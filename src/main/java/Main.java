@@ -268,172 +268,143 @@ static File currentDir = new File(System.getProperty("user.dir"));
     }
 
     static List<String> parseCommand(String input) {
-        List<String> result = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean inSingle = false;
-        boolean inDouble = false;
+        List<String> tokens = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        boolean inSingle = false, inDouble = false;
 
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
+            // toggle single quote
             if (c == '\'' && !inDouble) {
                 inSingle = !inSingle;
-
-                // if we just closed quotes and buffer is empty, it's an empty token
-                if (!inSingle && current.isEmpty()) {
-                    result.add("");
-                }
+                if (!inSingle && cur.length() == 0) tokens.add("");
                 continue;
             }
 
+            // toggle double quote
             if (c == '"' && !inSingle) {
                 inDouble = !inDouble;
-
-                // if we just closed quotes and buffer is empty, it's an empty token
-                if (!inDouble && current.isEmpty()) {
-                    result.add("");
-                }
+                if (!inDouble && cur.length() == 0) tokens.add("");
                 continue;
             }
 
-            // Backslash escapes
+            // Backslash handling (only outside single quotes)
             if (c == '\\' && !inSingle) {
-
-                if (inSingle) {
-                    current.append('\\');
-                    continue;
-                }
-
                 if (inDouble) {
                     if (i + 1 < input.length()) {
                         char next = input.charAt(i + 1);
-                        if (next == '\\' || next == '"' || next == '$' || next == '`') {
-                            current.append(next);
+                        if (next == '"' || next == '\\' || next == '$' || next == '`') {
+                            cur.append(next);
                             i++;
                             continue;
                         }
                     }
-                    current.append('\\');
+                    cur.append('\\');
                     continue;
                 }
 
-                    if (i + 1 < input.length()) {
+                if (i + 1 < input.length()) {
                     char next = input.charAt(i + 1);
-
-                    // Handle newline escape (\n)
-                    /*if (next == 'n') {
-                        current.append('\n');
-                        i++;
-                        continue;
-                    }*/
-
-                    // Handle escaped space (\ )
                     if (next == ' ') {
-                        current.append(' ');
+                        cur.append(' ');
                         i++;
                         continue;
                     }
-
-                    // Otherwise literal next char
-                    current.append(next);
+                    cur.append(next);
                     i++;
                     continue;
                 }
 
-                // Trailing backslash
-                current.append('\\');
+                cur.append('\\');
                 continue;
             }
 
-
-
+            // Space ends token only when not quoted
             if (c == ' ' && !inSingle && !inDouble) {
-                if (!current.isEmpty()) {
-                    result.add(current.toString());
-                    current.setLength(0);
+                if (cur.length() > 0) {
+                    tokens.add(cur.toString());
+                    cur.setLength(0);
                 }
+                continue;
             }
 
-
-
-            else {
-                current.append(c);
-            }
+            cur.append(c);
         }
 
-        if (!current.isEmpty()) {
-            result.add(current.toString());
-        }
+        if (cur.length() > 0) tokens.add(cur.toString());
 
+        // Final result + placeholders for internal redirection markers
         List<String> cleaned = new ArrayList<>();
-        String outFile = null;
-        String errFile = null;
+        String out = null, err = null;
+        boolean append = false;
 
-        for (int i = 0; i < result.size(); i++) {
-            String token = result.get(i);
+        for (int i = 0; i < tokens.size(); i++) {
+            String t = tokens.get(i);
 
-            if (token.equals(">") || token.equals("1>")) {
-                outFile = result.get(i + 1);
-                i++; // skip filename token
+            // append >>
+            if (t.equals(">>") || t.equals("1>>")) {
+                append = true;
+                out = tokens.get(++i);
+                cleaned.add("__APPEND__");
+                cleaned.add(out);
                 continue;
-            } else if (token.startsWith(">")) { // e.g. >file
-                outFile = token.substring(1);
+            }
+            if (t.startsWith(">>")) {
+                append = true;
+                out = t.substring(2);
+                cleaned.add("__APPEND__");
+                cleaned.add(out);
                 continue;
-            } else if (token.startsWith("1>")) {
-                outFile = token.substring(2);
+            }
+            if (t.startsWith("1>>")) {
+                append = true;
+                out = t.substring(3);
+                cleaned.add("__APPEND__");
+                cleaned.add(out);
                 continue;
             }
 
-
-
-
-            // stderr redirection
-            if (token.equals("2>")) {
-                errFile = result.get(i + 1);
-                i++;
+            // normal redirect >
+            if (t.equals(">") || t.equals("1>")) {
+                out = tokens.get(++i);
                 continue;
-            } else if (token.startsWith("2>")) {
-                errFile = token.substring(2);
+            }
+            if (t.startsWith(">")) {
+                out = t.substring(1);
+                continue;
+            }
+            if (t.startsWith("1>")) {
+                out = t.substring(2);
                 continue;
             }
 
-            // stdout append >>
-            if (token.equals(">>") || token.equals("1>>")) {
-                outFile = result.get(i + 1);
-                cleaned.add("__APPEND__");
-                cleaned.add(outFile);
-                i++; // skip filename
-                continue;
-            } else if (token.startsWith(">>")) { // e.g. >>file
-                outFile = token.substring(2);
-                cleaned.add("__APPEND__");
-                cleaned.add(outFile);
-                continue;
-            } else if (token.startsWith("1>>")) {
-                outFile = token.substring(3);
-                cleaned.add("__APPEND__");
-                cleaned.add(outFile);
+            // stderr redirect 2>
+            if (t.equals("2>")) {
+                err = tokens.get(++i);
                 continue;
             }
-            cleaned.add(token);
+            if (t.startsWith("2>")) {
+                err = t.substring(2);
+                continue;
+            }
+
+            cleaned.add(t);
         }
 
-        // Only add normal redirect if NOT append mode
-        if (outFile != null && !cleaned.contains("__APPEND__")) {
+        if (out != null && !append) {
             cleaned.add("__REDIR__");
-            cleaned.add(outFile);
+            cleaned.add(out);
         }
 
-
-        if (errFile != null) {
+        if (err != null) {
             cleaned.add("__REDIR_ERR__");
-            cleaned.add(errFile);
+            cleaned.add(err);
         }
-
-
 
         return cleaned;
     }
+
 
     static void writeToFile(String file, String content, boolean append) {
         try (FileWriter fw = new FileWriter(file, append)) {
