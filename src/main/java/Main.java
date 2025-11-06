@@ -16,11 +16,13 @@ public class Main {
             String input = scanner.nextLine();
 
             if (input.contains("\t")) {
-                input = handleAutocomplete(input);
-                System.out.println(input); // Show autocompleted command
+                String completed = handleAutocomplete(input);
+                System.out.println("$ " + completed);
                 continue;
             }
             List<String> parsed = parseCommand(input);
+            if (parsed.isEmpty()) continue;
+
 
             String[] commands = parsed.toArray(new String[0]);
 
@@ -139,16 +141,18 @@ public class Main {
     }
 
     static String handleAutocomplete(String input) {
-        // Split at tab and get prefix
-        String beforeTab = input.split("\t")[0].trim();
+        String beforeTab = input.split("\t")[0];
+        String[] parts = beforeTab.trim().split("\\s+");
+        String lastWord = parts[parts.length - 1];
 
         for (String cmd : BUILTINS) {
-            if (cmd.startsWith(beforeTab)) {
-                return cmd + " "; // autocompletion adds space
+            if (cmd.startsWith(lastWord)) {
+                return cmd + " ";
             }
         }
-        return beforeTab; // no completion
+        return beforeTab; // if nothing matches, just echo back
     }
+
 
 
     static void type(String[] input) {
