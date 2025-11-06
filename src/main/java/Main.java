@@ -1,12 +1,52 @@
 import java.util.*;
 import java.io.*;
 
+import org.jline.reader.Completer;
+import org.jline.reader.Candidate;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+
+
 public class Main {
+
 
     // Global variable
     static File currentDir = new File(System.getProperty("user.dir"));
 
     public static void main(String[] args) throws Exception {
+
+        Terminal terminal = TerminalBuilder.builder()
+                .system(true)
+                .build();
+
+        Completer builtinCompleter = (reader, line, candidates) -> {
+            String buffer = line.word().toLowerCase();
+            if ("ech".startsWith(buffer)) {
+                candidates.add(new Candidate("echo"));
+            }
+            if ("exi".startsWith(buffer)) {
+                candidates.add(new Candidate("exit"));
+            }
+        };
+
+        LineReader reader = LineReaderBuilder.builder()
+                .terminal(terminal)
+                .completer(builtinCompleter)
+                .build();
+
+        while (true) {
+            String input = reader.readLine("$ ");
+            if (input.trim().equals("exit")) {
+                break;
+            }
+            if (input.startsWith("echo")) {
+                String message = input.substring(4).trim();
+                System.out.println(message);
+            }
+        }
+
         Scanner scanner = new Scanner(System.in);
 
         while (true) {
