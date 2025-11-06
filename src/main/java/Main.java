@@ -16,8 +16,9 @@ public class Main {
             String input = scanner.nextLine();
 
             if (input.contains("\t")) {
+                input = input.replace("\t", "");
                 String completed = handleAutocomplete(input);
-                System.out.println("$ " + completed);
+                System.out.println("$ " + completed.trim() + " ");
                 continue;
             }
             List<String> parsed = parseCommand(input);
