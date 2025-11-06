@@ -15,10 +15,11 @@ public class Main {
             if (!scanner.hasNextLine()) break;
             String input = scanner.nextLine();
 
-            // Simulate autocompletion when input is an incomplete builtin
-            for (String cmd : BUILTINS) {
-                if (cmd.startsWith(input) && !cmd.equals(input)) {
-                    System.out.println("$ " + cmd + " ");
+            if (input.contains("\t")) {
+                String beforeTab = input.split("\t", 2)[0];
+                String completed = handleAutocomplete(input);
+                if (!completed.equals(beforeTab)) {
+                    System.out.println("$ " + completed);
                     continue;
                 }
             }
