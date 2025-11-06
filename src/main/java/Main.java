@@ -1,6 +1,11 @@
 import java.util.*;
 import java.io.*;
 
+import org.jline.reader.*;
+import org.jline.reader.impl.completer.StringsCompleter;
+import org.jline.terminal.*;
+
+
 public class Main {
 
     // Global variable
@@ -8,21 +13,23 @@ public class Main {
     static final String[] BUILTINS = {"echo", "exit"};
 
     public static void main(String[] args) throws Exception {
-        Scanner scanner = new Scanner(System.in);
+        List<String> builtins = Arrays.asList("echo", "exit");
+        Terminal terminal = TerminalBuilder.builder().system(true).build();
 
-        mainLoop:
-        while (true) {
-            System.out.print("$ ");
-            if (!scanner.hasNextLine()) break;
-            String input = scanner.nextLine();
+        Completer completer = new StringsCompleter(builtins);
+        LineReader reader = LineReaderBuilder.builder()
+                .terminal(terminal)
+                .completer(completer)
+                .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
+                .build();
 
-            for (String cmd : BUILTINS) {
-                if (cmd.startsWith(input) && !cmd.equals(input)) {
-                    System.out.println("$ " + cmd + " ");
-                    continue mainLoop;
-                }
+        while(true) {
+            String input;
+            try {
+                input = reader.readLine("$ ");
+            } catch (EndOfFileException | UserInterruptException e) {
+                break;
             }
-
             List<String> parsed = parseCommand(input);
             if (parsed.isEmpty()) continue;
 
@@ -46,7 +53,6 @@ public class Main {
 
                     boolean errAppend = false;
                     String errFileTmp = null;
-
                     // detect markers at the end repeatedly (allow both stdout+stderr in any order)
                     boolean changed = true;
                     while (changed && echoList.size() >= 2) {
