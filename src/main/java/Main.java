@@ -11,14 +11,18 @@ import org.jline.terminal.TerminalBuilder;
 
 public class Main {
 
+    static {
+        // Disable all JLine native and terminal detection (for sandbox environments)
+        System.setProperty("org.jline.terminal.dumb", "true");
+        System.setProperty("org.jline.nativ.disable", "true");
+        System.setProperty("org.jline.terminal.jna", "false");
+        System.setProperty("org.jline.terminal.jansi", "false");
+    }
 
     // Global variable
     static File currentDir = new File(System.getProperty("user.dir"));
 
     public static void main(String[] args) throws Exception {
-        System.setProperty("org.jline.terminal.dumb", "true");
-        System.setProperty("org.jline.nativ.disable", "true");
-
         Terminal terminal = TerminalBuilder.builder()
                 .system(true)
                 .build();
