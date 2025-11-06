@@ -15,11 +15,12 @@ public class Main {
             if (!scanner.hasNextLine()) break;
             String input = scanner.nextLine();
 
-            if (input.contains("\t")) {
-                input = input.replace("\t", "");
-                String completed = handleAutocomplete(input);
-                System.out.println("$ " + completed.trim() + " ");
-                continue;
+            // Simulate autocompletion when input is an incomplete builtin
+            for (String cmd : BUILTINS) {
+                if (cmd.startsWith(input) && !cmd.equals(input)) {
+                    System.out.println("$ " + cmd + " ");
+                    continue;
+                }
             }
             List<String> parsed = parseCommand(input);
             if (parsed.isEmpty()) continue;
