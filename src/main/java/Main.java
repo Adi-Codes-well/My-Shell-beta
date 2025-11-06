@@ -16,6 +16,8 @@ public class Main {
     static File currentDir = new File(System.getProperty("user.dir"));
 
     public static void main(String[] args) throws Exception {
+        System.setProperty("org.jline.terminal.dumb", "true");
+        System.setProperty("org.jline.nativ.disable", "true");
 
         Terminal terminal = TerminalBuilder.builder()
                 .system(true)
