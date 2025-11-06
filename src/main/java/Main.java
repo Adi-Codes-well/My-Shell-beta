@@ -138,47 +138,80 @@ public class Main {
             }
         }
     }
+
+    static boolean isBuiltin(String cmd) {
+        return Arrays.asList("echo", "exit", "type", "pwd", "cd").contains(cmd);
+    }
+    static void runBuiltin(List<String> cmd, InputStream in, OutputStream out) throws IOException {
+        String name = cmd.get(0);
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(buffer);
+
+        switch (name) {
+            case "echo":
+                StringBuilder sb = new StringBuilder();
+                for (int i = 1; i < cmd.size(); i++) {
+                    if (i > 1) sb.append(" ");
+                    sb.append(cmd.get(i));
+                }
+                sb.append("\n");
+                ps.print(sb.toString());
+                break;
+
+            case "pwd":
+                ps.println(currentDir.getAbsolutePath());
+                break;
+
+            case "type":
+                String arg = cmd.size() > 1 ? cmd.get(1) : "";
+                if (isBuiltin(arg)) ps.println(arg + " is a shell builtin");
+                else ps.println(arg + ": not found");
+                break;
+
+            // exit is not allowed in pipelines — ignore or no-op
+            case "exit":
+                break;
+        }
+
+        ps.flush();
+        buffer.writeTo(out);
+    }
+
     static void runPipeline(List<String> leftCmd, List<String> rightCmd) {
         try {
-            ProcessBuilder pb1 = new ProcessBuilder(leftCmd);
-            ProcessBuilder pb2 = new ProcessBuilder(rightCmd);
+            // 1️⃣ Capture left side output
+            ByteArrayOutputStream leftOutput = new ByteArrayOutputStream();
 
-            pb1.directory(currentDir);
-            pb2.directory(currentDir);
+            if (isBuiltin(leftCmd.get(0))) {
+                runBuiltin(leftCmd, new ByteArrayInputStream(new byte[0]), leftOutput);
+            } else {
+                ProcessBuilder pb1 = new ProcessBuilder(leftCmd);
+                pb1.directory(currentDir);
+                Process p1 = pb1.start();
 
-            pb1.redirectError(ProcessBuilder.Redirect.INHERIT);
-            pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
+                try (InputStream in = p1.getInputStream()) {
+                    in.transferTo(leftOutput);
+                }
+                p1.waitFor();
+            }
 
-            pb1.redirectOutput(ProcessBuilder.Redirect.PIPE);
-            pb2.redirectInput(ProcessBuilder.Redirect.PIPE);
-            pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            // 2️⃣ Use leftOutput as input for right side
+            InputStream rightInput = new ByteArrayInputStream(leftOutput.toByteArray());
 
-            Process p1 = pb1.start();
-            Process p2 = pb2.start();
+            if (isBuiltin(rightCmd.get(0))) {
+                runBuiltin(rightCmd, rightInput, System.out);
+            } else {
+                ProcessBuilder pb2 = new ProcessBuilder(rightCmd);
+                pb2.directory(currentDir);
+                Process p2 = pb2.start();
 
-            // Pipe data from p1 → p2
-            Thread pipeThread = new Thread(() -> {
-                try (InputStream in = p1.getInputStream();
-                     OutputStream out = p2.getOutputStream()) {
-                    byte[] buffer = new byte[8192];
-                    int n;
-                    while ((n = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, n);
-                        out.flush();
-                    }
-                } catch (IOException ignored) {}
-                try { p2.getOutputStream().close(); } catch (IOException ignored) {}
-            });
-
-            pipeThread.start();
-
-            // Wait for both to finish
-            p1.waitFor();
-            pipeThread.join();
-            p2.waitFor();
-
+                try (OutputStream out = p2.getOutputStream()) {
+                    rightInput.transferTo(out);
+                }
+                p2.waitFor();
+            }
         } catch (Exception e) {
-            System.out.println("Pipeline execution failed: " + e.getMessage());
+            System.err.println("Pipeline execution failed: " + e.getMessage());
         }
     }
 
