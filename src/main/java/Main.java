@@ -1,52 +1,48 @@
 import java.util.*;
 import java.io.*;
 
-import org.jline.reader.Completer;
-import org.jline.reader.Candidate;
-import org.jline.reader.LineReader;
-import org.jline.reader.LineReaderBuilder;
-import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
-
-
 public class Main {
-
-    static {
-        // Disable all JLine native and terminal detection (for sandbox environments)
-        System.setProperty("org.jline.terminal.dumb", "true");
-        System.setProperty("org.jline.nativ.disable", "true");
-        System.setProperty("org.jline.terminal.jna", "false");
-        System.setProperty("org.jline.terminal.jansi", "false");
-    }
 
     // Global variable
     static File currentDir = new File(System.getProperty("user.dir"));
 
     public static void main(String[] args) throws Exception {
-        Terminal terminal = TerminalBuilder.builder()
-                .system(true)
-                .build();
+        PrintStream originalErr = System.err;
+        System.setErr(new PrintStream(OutputStream.nullOutputStream()));
 
-        Completer builtinCompleter = (reader, line, candidates) -> {
+        System.setProperty("org.jline.terminal.dumb", "true");
+        System.setProperty("org.jline.nativ.disable", "true");
+        System.setProperty("org.jline.terminal.jna", "false");
+        System.setProperty("org.jline.terminal.jansi", "false");
+// Lazy-load JLine (no imports required)
+        org.jline.terminal.Terminal terminal =
+                org.jline.terminal.TerminalBuilder.builder()
+                        .dumb(true)
+                        .streams(System.in, System.out)
+                        .build();
+        System.setErr(originalErr);
+
+
+        org.jline.reader.Completer builtinCompleter = (reader, line, candidates) -> {
             String buffer = line.word().toLowerCase();
-            if ("ech".startsWith(buffer)) {
-                candidates.add(new Candidate("echo"));
+            if ("echo".startsWith(buffer)) {
+                candidates.add(new org.jline.reader.Candidate("echo"));
             }
-            if ("exi".startsWith(buffer)) {
-                candidates.add(new Candidate("exit"));
+            if ("exit".startsWith(buffer)) {
+                candidates.add(new org.jline.reader.Candidate("exit"));
             }
         };
 
-        LineReader reader = LineReaderBuilder.builder()
-                .terminal(terminal)
-                .completer(builtinCompleter)
-                .build();
+        org.jline.reader.LineReader reader =
+                org.jline.reader.LineReaderBuilder.builder()
+                        .terminal(terminal)
+                        .completer(builtinCompleter)
+                        .build();
 
         while (true) {
             String input = reader.readLine("$ ");
-            if (input.trim().equals("exit")) {
-                break;
-            }
+            if (input == null) break; // handle EOF safely
+            if (input.trim().equals("exit")) break;
             if (input.startsWith("echo")) {
                 String message = input.substring(4).trim();
                 System.out.println(message);
