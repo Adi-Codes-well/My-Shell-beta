@@ -17,12 +17,13 @@ public class Main {
 
             if (input.contains("\t")) {
                 String beforeTab = input.split("\t", 2)[0];
-                String completed = handleAutocomplete(input);
+                String completed = handleAutocomplete(beforeTab);
                 if (!completed.equals(beforeTab)) {
                     System.out.println("$ " + completed);
                     continue;
                 }
             }
+
             List<String> parsed = parseCommand(input);
             if (parsed.isEmpty()) continue;
 
@@ -143,17 +144,18 @@ public class Main {
         }
     }
 
-    static String handleAutocomplete(String input) {
-        String beforeTab = input.split("\t")[0];
+    static String handleAutocomplete(String beforeTab) {
+        if (beforeTab.isEmpty()) return beforeTab;
+
         String[] parts = beforeTab.split("\\s+");
         String lastWord = parts[parts.length - 1];
 
         for (String cmd : BUILTINS) {
             if (cmd.startsWith(lastWord)) {
+                // Replace only the last word with the completion
                 return beforeTab.substring(0, beforeTab.length() - lastWord.length()) + cmd + " ";
             }
         }
-
         return beforeTab;
     }
 
