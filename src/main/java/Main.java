@@ -163,13 +163,10 @@ public class Main {
         List<String> tokens = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
         boolean inSingle = false, inDouble = false;
-
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
-
             if (c == '\'' && !inDouble) { inSingle = !inSingle; continue; }
             if (c == '"' && !inSingle) { inDouble = !inDouble; continue; }
-
             if (c == ' ' && !inSingle && !inDouble) {
                 if (cur.length() > 0) {
                     tokens.add(cur.toString());
@@ -177,87 +174,9 @@ public class Main {
                 }
                 continue;
             }
-
             cur.append(c);
         }
-
         if (cur.length() > 0) tokens.add(cur.toString());
-
-        // 🔧 Split redirection operators if attached (like nonexistent>>file)
-        List<String> splitTokens = new ArrayList<>();
-        for (String t : tokens) {
-            if (t.contains(">>")) {
-                int idx = t.indexOf(">>");
-                String before = t.substring(0, idx);
-                String after = t.substring(idx + 2);
-                if (!before.isEmpty()) splitTokens.add(before);
-                splitTokens.add(">>");
-                if (!after.isEmpty()) splitTokens.add(after);
-            } else if (t.contains(">")) {
-                int idx = t.indexOf(">");
-                String before = t.substring(0, idx);
-                String after = t.substring(idx + 1);
-                if (!before.isEmpty()) splitTokens.add(before);
-                splitTokens.add(">");
-                if (!after.isEmpty()) splitTokens.add(after);
-            } else if (t.contains("2>>")) {
-                int idx = t.indexOf("2>>");
-                String before = t.substring(0, idx);
-                String after = t.substring(idx + 3);
-                if (!before.isEmpty()) splitTokens.add(before);
-                splitTokens.add("2>>");
-                if (!after.isEmpty()) splitTokens.add(after);
-            } else if (t.contains("2>")) {
-                int idx = t.indexOf("2>");
-                String before = t.substring(0, idx);
-                String after = t.substring(idx + 2);
-                if (!before.isEmpty()) splitTokens.add(before);
-                splitTokens.add("2>");
-                if (!after.isEmpty()) splitTokens.add(after);
-            } else {
-                splitTokens.add(t);
-            }
-        }
-
-        // ✅ Now reuse your existing redirection marker logic
-        List<String> cleaned = new ArrayList<>();
-        String out = null, err = null;
-        boolean appendOut = false, appendErr = false;
-
-        for (int i = 0; i < splitTokens.size(); i++) {
-            String t = splitTokens.get(i);
-
-            if (t.equals(">>") || t.equals("1>>")) {
-                appendOut = true;
-                out = splitTokens.get(++i);
-                cleaned.add("__APPEND__");
-                cleaned.add(out);
-                continue;
-            }
-            if (t.equals(">") || t.equals("1>")) {
-                out = splitTokens.get(++i);
-                cleaned.add("__REDIR__");
-                cleaned.add(out);
-                continue;
-            }
-            if (t.equals("2>>")) {
-                appendErr = true;
-                err = splitTokens.get(++i);
-                cleaned.add("__APPEND_ERR__");
-                cleaned.add(err);
-                continue;
-            }
-            if (t.equals("2>")) {
-                err = splitTokens.get(++i);
-                cleaned.add("__REDIR_ERR__");
-                cleaned.add(err);
-                continue;
-            }
-
-            cleaned.add(t);
-        }
-
-        return cleaned;
+        return tokens;
     }
-
 }
