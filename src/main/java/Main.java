@@ -10,17 +10,16 @@ public class Main {
     public static void main(String[] args) throws Exception {
         Scanner scanner = new Scanner(System.in);
 
+        mainLoop:
         while (true) {
             System.out.print("$ ");
             if (!scanner.hasNextLine()) break;
             String input = scanner.nextLine();
 
-            if (input.contains("\t")) {
-                String beforeTab = input.split("\t", 2)[0];
-                String completed = handleAutocomplete(beforeTab);
-                if (!completed.equals(beforeTab)) {
-                    System.out.println("$ " + completed);
-                    continue;
+            for (String cmd : BUILTINS) {
+                if (cmd.startsWith(input) && !cmd.equals(input)) {
+                    System.out.println("$ " + cmd + " ");
+                    continue mainLoop;
                 }
             }
 
