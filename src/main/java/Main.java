@@ -6,6 +6,13 @@ import org.jline.reader.impl.completer.StringsCompleter;
 import org.jline.terminal.*;
 
 
+import org.jline.reader.impl.completer.AggregateCompleter;
+import org.jline.reader.impl.completer.ArgumentCompleter;
+import org.jline.reader.impl.completer.NullCompleter;
+import org.jline.reader.impl.completer.StringsCompleter;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+
 public class Main {
 
     // Global variable
@@ -13,21 +20,29 @@ public class Main {
     static final String[] BUILTINS = {"echo", "exit"};
 
     public static void main(String[] args) throws Exception {
-        List<String> builtins = Arrays.asList("echo", "exit");
+        ArrayList<String> builtins =
+                new ArrayList<>(Arrays.asList("echo", "type", "exit", "pwd", "cd"));
         Terminal terminal = TerminalBuilder.builder().system(true).build();
 
-        Completer completer = new StringsCompleter(builtins);
-        LineReader reader = LineReaderBuilder.builder()
-                .terminal(terminal)
-                .completer(completer)
-                .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
-                .build();
+        List<Completer> completers = new ArrayList<>();
+        for (String cmd : builtins) {
+            completers.add(
+                    new ArgumentCompleter(new StringsCompleter(cmd), NullCompleter.INSTANCE));
+        }
 
+        Completer completer = new AggregateCompleter(completers);
+
+        LineReader reader =
+                LineReaderBuilder.builder()
+                        .terminal(terminal)
+                        .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
+                        .completer(completer)
+                        .build();
         while(true) {
             String input;
             try {
                 input = reader.readLine("$ ");
-            } catch (EndOfFileException | UserInterruptException e) {
+            } catch (Exception e) {
                 break;
             }
             List<String> parsed = parseCommand(input);
