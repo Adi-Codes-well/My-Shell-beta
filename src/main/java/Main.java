@@ -1,74 +1,47 @@
 import java.util.*;
 import java.io.*;
 
-import org.jline.reader.*;
-import org.jline.reader.impl.completer.StringsCompleter;
-import org.jline.terminal.*;
-
-
-import org.jline.reader.impl.completer.AggregateCompleter;
-import org.jline.reader.impl.completer.ArgumentCompleter;
-import org.jline.reader.impl.completer.NullCompleter;
-import org.jline.reader.impl.completer.StringsCompleter;
-import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
-
 public class Main {
 
-    // Global variable
     static File currentDir = new File(System.getProperty("user.dir"));
-    static final String[] BUILTINS = {"echo", "exit"};
 
     public static void main(String[] args) throws Exception {
-        ArrayList<String> builtins =
-                new ArrayList<>(Arrays.asList("echo", "type", "exit", "pwd", "cd"));
-        Terminal terminal = TerminalBuilder.builder().system(true).build();
-
-        List<Completer> completers = new ArrayList<>();
-        for (String cmd : builtins) {
-            completers.add(
-                    new ArgumentCompleter(new StringsCompleter(cmd), NullCompleter.INSTANCE));
-        }
-
-        Completer completer = new AggregateCompleter(completers);
-
-        LineReader reader =
-                LineReaderBuilder.builder()
-                        .terminal(terminal)
-                        .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
-                        .completer(completer)
-                        .build();
-        while(true) {
-            String input;
-            try {
-                input = reader.readLine("$ ");
-            } catch (Exception e) {
-                break;
-            }
+        Scanner scanner = new Scanner(System.in);
+        while (true) {
+            System.out.print("$ ");
+            if (!scanner.hasNextLine()) break;
+            String input = scanner.nextLine();
             List<String> parsed = parseCommand(input);
-            if (parsed.isEmpty()) continue;
 
+            int pipeIndex = parsed.indexOf("|");
+            if (pipeIndex != -1) {
+                List<String> leftCmd = new ArrayList<>(parsed.subList(0, pipeIndex));
+                List<String> rightCmd = new ArrayList<>(parsed.subList(pipeIndex + 1, parsed.size()));
+                if (leftCmd.isEmpty() || rightCmd.isEmpty()) {
+                    System.err.println("Invalid pipeline");
+                    continue;
+                }
+                runPipeline(leftCmd, rightCmd);
+                continue;
+            }
 
             String[] commands = parsed.toArray(new String[0]);
+            if (commands.length == 0) continue;
 
             switch (commands[0]) {
                 case "exit":
                     if (commands.length > 1) System.exit(Integer.parseInt(commands[1]));
                     else System.exit(0);
                     break;
-
                 case "echo": {
-                    // operate on a mutable list copy
+                    // builtin echo (kept same behavior as before)
                     List<String> echoList = new ArrayList<>(Arrays.asList(commands));
-
-                    // flags & filenames
                     boolean outAppend = false;
                     boolean outRedirect = false;
                     String outFileTmp = null;
-
                     boolean errAppend = false;
                     String errFileTmp = null;
-                    // detect markers at the end repeatedly (allow both stdout+stderr in any order)
+
                     boolean changed = true;
                     while (changed && echoList.size() >= 2) {
                         changed = false;
@@ -97,10 +70,7 @@ public class Main {
                         }
                     }
 
-                    // rebuild commands for printing
                     commands = echoList.toArray(new String[0]);
-
-                    // Build normal echo output
                     StringBuilder echoOut = new StringBuilder();
                     for (int i = 1; i < commands.length; i++) {
                         if (i > 1) echoOut.append(" ");
@@ -108,32 +78,24 @@ public class Main {
                     }
                     echoOut.append("\n");
 
-                    // stderr handling for builtin echo (tests expect builtins to write)
                     if (errFileTmp != null) {
                         File target = new File(errFileTmp);
                         File parent = target.getParentFile();
-                        // POSIX behavior: if directory doesn’t exist, silently discard any stderr output
                         if (parent == null || parent.exists()) {
                             try {
-                                if (!target.exists()) {
-                                    target.createNewFile();
-                                }
+                                if (!target.exists()) target.createNewFile();
                             } catch (IOException ignored) {}
                         }
                     }
 
-                    // Always print to stdout unless stdout is redirected
                     if (outFileTmp == null) {
                         System.out.print(echoOut.toString());
                     }
 
-                    // stdout handling for builtin echo
                     if (outFileTmp != null) {
                         File target = new File(outFileTmp);
                         File parent = target.getParentFile();
-
                         if (parent != null && !parent.exists()) {
-                            // discard by writing to /dev/null
                             try (FileWriter fw = new FileWriter("/dev/null", true)) {
                                 fw.write(echoOut.toString());
                             } catch (IOException ignored) {}
@@ -141,22 +103,17 @@ public class Main {
                             writeToFile(outFileTmp, echoOut.toString(), outAppend);
                         }
                     }
-
                     break;
                 }
-
                 case "type":
                     type(commands);
                     break;
-
                 case "pwd":
                     pwd();
                     break;
-
                 case "cd":
                     cd(commands);
                     break;
-
                 default:
                     runExternalCommand(commands);
                     break;
@@ -164,53 +121,183 @@ public class Main {
         }
     }
 
-    static String handleAutocomplete(String beforeTab) {
-        if (beforeTab.isEmpty()) return beforeTab;
+    // run a two-command pipeline
+    static void runPipeline(List<String> leftTokens, List<String> rightTokens) {
+        // parse left tokens for redirection markers and build command lists
+        ParsedCommand left = buildCommandFromTokens(leftTokens);
+        ParsedCommand right = buildCommandFromTokens(rightTokens);
 
-        String[] parts = beforeTab.split("\\s+");
-        String lastWord = parts[parts.length - 1];
+        try {
+            ProcessBuilder pb1 = new ProcessBuilder(left.cmdList);
+            ProcessBuilder pb2 = new ProcessBuilder(right.cmdList);
+            pb1.directory(currentDir);
+            pb2.directory(currentDir);
 
-        for (String cmd : BUILTINS) {
-            if (cmd.startsWith(lastWord)) {
-                // Replace only the last word with the completion
-                return beforeTab.substring(0, beforeTab.length() - lastWord.length()) + cmd + " ";
+            // stdout for left: either redirected to file or pipe to pb2
+            if (left.redirectOut && left.outTarget != null) {
+                File parent = left.outTarget.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    pb1.redirectOutput(ProcessBuilder.Redirect.to(new File("/dev/null")));
+                } else {
+                    if (left.appendOut) pb1.redirectOutput(ProcessBuilder.Redirect.appendTo(left.outTarget));
+                    else pb1.redirectOutput(ProcessBuilder.Redirect.to(left.outTarget));
+                }
+            } else {
+                pb1.redirectOutput(ProcessBuilder.Redirect.PIPE);
             }
+
+            // stderr for left
+            if (left.redirectErr && left.errTarget != null) {
+                File parent = left.errTarget.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    pb1.redirectError(ProcessBuilder.Redirect.to(new File("/dev/null")));
+                } else {
+                    if (left.appendErr) pb1.redirectError(ProcessBuilder.Redirect.appendTo(left.errTarget));
+                    else pb1.redirectError(ProcessBuilder.Redirect.to(left.errTarget));
+                }
+            } else {
+                pb1.redirectError(ProcessBuilder.Redirect.INHERIT);
+            }
+
+            // stdin for right: from pipe unless we decide to change (no '<' support currently)
+            pb2.redirectInput(ProcessBuilder.Redirect.PIPE);
+
+            // stdout for right: either redirected or inherit
+            if (right.redirectOut && right.outTarget != null) {
+                File parent = right.outTarget.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    pb2.redirectOutput(ProcessBuilder.Redirect.to(new File("/dev/null")));
+                } else {
+                    if (right.appendOut) pb2.redirectOutput(ProcessBuilder.Redirect.appendTo(right.outTarget));
+                    else pb2.redirectOutput(ProcessBuilder.Redirect.to(right.outTarget));
+                }
+            } else {
+                pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            }
+
+            // stderr for right
+            if (right.redirectErr && right.errTarget != null) {
+                File parent = right.errTarget.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    pb2.redirectError(ProcessBuilder.Redirect.to(new File("/dev/null")));
+                } else {
+                    if (right.appendErr) pb2.redirectError(ProcessBuilder.Redirect.appendTo(right.errTarget));
+                    else pb2.redirectError(ProcessBuilder.Redirect.to(right.errTarget));
+                }
+            } else {
+                pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
+            }
+
+            Process p1 = startWithPathFallback(pb1, left.cmdList.get(0));
+            Process p2 = startWithPathFallback(pb2, right.cmdList.get(0));
+
+            // connect p1 stdout -> p2 stdin if p1 stdout is pipe and p2 stdin is pipe
+            Thread pipeThread = null;
+            if (p1 != null && p2 != null) {
+                InputStream in = p1.getInputStream();
+                OutputStream out = p2.getOutputStream();
+                pipeThread = new Thread(() -> {
+                    try (InputStream rin = in; OutputStream rout = out) {
+                        byte[] buf = new byte[8192];
+                        int n;
+                        while ((n = rin.read(buf)) != -1) {
+                            rout.write(buf, 0, n);
+                            rout.flush();
+                        }
+                    } catch (IOException ignored) {}
+                });
+                pipeThread.start();
+            }
+
+            if (p1 != null) p1.waitFor();
+            if (p2 != null) {
+                try { p2.getOutputStream().close(); } catch (IOException ignored) {}
+            }
+            if (pipeThread != null) pipeThread.join();
+            if (p2 != null) p2.waitFor();
+
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
-        return beforeTab;
     }
 
-    static void type(String[] input) {
-        String[] validCommands = {"exit", "type", "echo", "pwd", "cd"};
-        if (search(validCommands, input[1])) {
-            System.out.println(input[1] + " is a shell builtin");
-            return;
-        }
-        String path = System.getenv("PATH");
-        if (path == null) path = "";
-        String[] dirs = path.split(":");
-
-        for (String dir : dirs) {
-            if (dir.isEmpty()) continue;
-            File file = new File(dir, input[1]);
-            if (file.exists() && file.canExecute()) {
-                System.out.println(input[1] + " is " + file.getAbsolutePath());
-                return;
+    // helper to attempt to start a process, fallback to PATH search like runExternalCommand
+    static Process startWithPathFallback(ProcessBuilder pb, String cmd) {
+        try {
+            return pb.start();
+        } catch (IOException e) {
+            String path = System.getenv("PATH");
+            if (path == null) path = "";
+            String[] dirs = path.split(":");
+            for (String dir : dirs) {
+                if (dir.isEmpty()) continue;
+                File file = new File(dir, cmd);
+                if (file.exists() && file.canExecute()) {
+                    List<String> cmdlist = new ArrayList<>(pb.command());
+                    cmdlist.set(0, file.getAbsolutePath());
+                    ProcessBuilder pb2 = new ProcessBuilder(cmdlist);
+                    pb2.directory(pb.directory());
+                    pb2.redirectOutput(pb.redirectOutput());
+                    pb2.redirectError(pb.redirectError());
+                    pb2.redirectInput(pb.redirectInput());
+                    try {
+                        return pb2.start();
+                    } catch (IOException ignored) {}
+                }
             }
+            System.out.println(cmd + ": command not found");
+            return null;
         }
-        System.out.println(input[1] + ": not found");
     }
 
-    static boolean search(String[] input, String command) {
-        for (String s : input) {
-            if (s.equals(command)) {
-                return true;
-            }
-        }
-        return false;
+    // small struct-like holder
+    static class ParsedCommand {
+        List<String> cmdList = new ArrayList<>();
+        boolean redirectOut = false;
+        boolean appendOut = false;
+        File outTarget = null;
+        boolean redirectErr = false;
+        boolean appendErr = false;
+        File errTarget = null;
     }
 
-    static void printCNF(String input) {
-        System.out.println(input + ": command not found");
+    // build ParsedCommand from tokens (handles your internal markers)
+    static ParsedCommand buildCommandFromTokens(List<String> tokens) {
+        ParsedCommand pc = new ParsedCommand();
+        for (int i = 0; i < tokens.size();) {
+            String t = tokens.get(i);
+            if (t.equals("__APPEND__") && i + 1 < tokens.size()) {
+                pc.appendOut = true;
+                pc.redirectOut = true;
+                pc.outTarget = new File(tokens.get(i + 1));
+                i += 2;
+                continue;
+            }
+            if (t.equals("__REDIR__") && i + 1 < tokens.size()) {
+                pc.appendOut = false;
+                pc.redirectOut = true;
+                pc.outTarget = new File(tokens.get(i + 1));
+                i += 2;
+                continue;
+            }
+            if (t.equals("__APPEND_ERR__") && i + 1 < tokens.size()) {
+                pc.appendErr = true;
+                pc.redirectErr = true;
+                pc.errTarget = new File(tokens.get(i + 1));
+                i += 2;
+                continue;
+            }
+            if (t.equals("__REDIR_ERR__") && i + 1 < tokens.size()) {
+                pc.appendErr = false;
+                pc.redirectErr = true;
+                pc.errTarget = new File(tokens.get(i + 1));
+                i += 2;
+                continue;
+            }
+            pc.cmdList.add(t);
+            i++;
+        }
+        return pc;
     }
 
     static void runExternalCommand(String[] commands) {
@@ -231,10 +318,8 @@ public class Main {
 
         List<String> cmdList = new ArrayList<>();
 
-        // Scan for redirection markers anywhere in the command
         for (int i = 0; i < commands.length; ) {
             String token = commands[i];
-
             if (token.equals("__APPEND__") && i + 1 < commands.length) {
                 appendOut = true;
                 redirectOut = true;
@@ -242,7 +327,6 @@ public class Main {
                 i += 2;
                 continue;
             }
-
             if (token.equals("__REDIR__") && i + 1 < commands.length) {
                 appendOut = false;
                 redirectOut = true;
@@ -250,7 +334,6 @@ public class Main {
                 i += 2;
                 continue;
             }
-
             if (token.equals("__APPEND_ERR__") && i + 1 < commands.length) {
                 appendErr = true;
                 redirectErr = true;
@@ -258,7 +341,6 @@ public class Main {
                 i += 2;
                 continue;
             }
-
             if (token.equals("__REDIR_ERR__") && i + 1 < commands.length) {
                 appendErr = false;
                 redirectErr = true;
@@ -266,13 +348,10 @@ public class Main {
                 i += 2;
                 continue;
             }
-
-            // Normal command tokens
             cmdList.add(token);
             i++;
         }
 
-        // Build target File objects if present
         File outTarget = (outFileName != null) ? new File(outFileName) : null;
         File errTarget = (errFileName != null) ? new File(errFileName) : null;
 
@@ -280,41 +359,28 @@ public class Main {
             ProcessBuilder pb = new ProcessBuilder(cmdList);
             pb.directory(currentDir);
 
-            // stdout redirection
             if (redirectOut && outTarget != null) {
                 File parent = outTarget.getParentFile();
                 if (parent != null && !parent.exists()) {
-                    // directory doesn't exist -> discard to /dev/null
                     pb.redirectOutput(ProcessBuilder.Redirect.to(new File("/dev/null")));
                 } else {
-                    if (appendOut) {
-                        pb.redirectOutput(ProcessBuilder.Redirect.appendTo(outTarget));
-                    } else {
-                        pb.redirectOutput(ProcessBuilder.Redirect.to(outTarget));
-                    }
+                    if (appendOut) pb.redirectOutput(ProcessBuilder.Redirect.appendTo(outTarget));
+                    else pb.redirectOutput(ProcessBuilder.Redirect.to(outTarget));
                 }
             } else {
                 pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
             }
 
-            // stderr redirection
             if (redirectErr && errTarget != null) {
                 File parent = errTarget.getParentFile();
                 if (parent != null && !parent.exists()) {
-                    // directory doesn't exist -> discard to /dev/null
                     pb.redirectError(ProcessBuilder.Redirect.to(new File("/dev/null")));
                 } else {
                     try {
-                        if (appendErr && !errTarget.exists()) {
-                            errTarget.createNewFile();  // ensure file exists before append
-                        }
+                        if (appendErr && !errTarget.exists()) errTarget.createNewFile();
                     } catch (IOException ignored) {}
-
-                    if (appendErr) {
-                        pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
-                    } else {
-                        pb.redirectError(ProcessBuilder.Redirect.to(errTarget));
-                    }
+                    if (appendErr) pb.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
+                    else pb.redirectError(ProcessBuilder.Redirect.to(errTarget));
                 }
             } else {
                 pb.redirectError(ProcessBuilder.Redirect.INHERIT);
@@ -325,7 +391,6 @@ public class Main {
             return;
 
         } catch (IOException e) {
-            // If not found directly (or other IO issue), try PATH search
             for (String dir : dirs) {
                 if (dir.isEmpty()) continue;
                 File file = new File(dir, cmd);
@@ -337,7 +402,6 @@ public class Main {
                         ProcessBuilder pb2 = new ProcessBuilder(newCmd);
                         pb2.directory(currentDir);
 
-                        // stdout redirection for fallback
                         if (redirectOut && outTarget != null) {
                             File parent = outTarget.getParentFile();
                             if (parent != null && !parent.exists()) {
@@ -350,24 +414,16 @@ public class Main {
                             pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
                         }
 
-                        // stderr redirection for fallback
                         if (redirectErr && errTarget != null) {
                             File parent = errTarget.getParentFile();
                             if (parent != null && !parent.exists()) {
                                 pb2.redirectError(ProcessBuilder.Redirect.to(new File("/dev/null")));
                             } else  {
                                 try {
-                                    // Ensure file exists before appending (POSIX behavior for "2>>")
-                                    if (appendErr && !errTarget.exists()) {
-                                        errTarget.createNewFile();
-                                    }
+                                    if (appendErr && !errTarget.exists()) errTarget.createNewFile();
                                 } catch (IOException ignored) {}
-
-                                if (appendErr) {
-                                    pb2.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
-                                } else {
-                                    pb2.redirectError(ProcessBuilder.Redirect.to(errTarget));
-                                }
+                                if (appendErr) pb2.redirectError(ProcessBuilder.Redirect.appendTo(errTarget));
+                                else pb2.redirectError(ProcessBuilder.Redirect.to(errTarget));
                             }
                         } else {
                             pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
@@ -391,14 +447,9 @@ public class Main {
     }
 
     static void cd(String[] commands) {
-        if (commands.length < 2) {
-            return;
-        }
-
+        if (commands.length < 2) return;
         String path = commands[1];
         File newDir;
-
-        // Absolute path
         if (path.startsWith("/")) {
             newDir = new File(path);
         } else if (path.startsWith("~")) {
@@ -411,7 +462,7 @@ public class Main {
 
         try {
             if (newDir.exists() && newDir.isDirectory()) {
-                currentDir = newDir.getCanonicalFile(); // normalize path
+                currentDir = newDir.getCanonicalFile();
                 System.setProperty("user.dir", currentDir.getAbsolutePath());
             } else {
                 System.out.println("cd: " + path + ": No such file or directory");
@@ -429,21 +480,18 @@ public class Main {
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
 
-            // toggle single quote
             if (c == '\'' && !inDouble) {
                 inSingle = !inSingle;
                 if (!inSingle && cur.length() == 0) tokens.add("");
                 continue;
             }
 
-            // toggle double quote
             if (c == '"' && !inSingle) {
                 inDouble = !inDouble;
                 if (!inDouble && cur.length() == 0) tokens.add("");
                 continue;
             }
 
-            // Backslash handling (only outside single quotes)
             if (c == '\\' && !inSingle) {
                 if (inDouble) {
                     if (i + 1 < input.length()) {
@@ -474,7 +522,6 @@ public class Main {
                 continue;
             }
 
-            // Space ends token only when not quoted
             if (c == ' ' && !inSingle && !inDouble) {
                 if (cur.length() > 0) {
                     tokens.add(cur.toString());
@@ -488,7 +535,6 @@ public class Main {
 
         if (cur.length() > 0) tokens.add(cur.toString());
 
-        // Final result + placeholders for internal redirection markers
         List<String> cleaned = new ArrayList<>();
         String out = null, err = null;
         boolean appendOut = false, appendErr = false;
@@ -496,7 +542,6 @@ public class Main {
         for (int i = 0; i < tokens.size(); i++) {
             String t = tokens.get(i);
 
-            // append stdout >> or 1>>
             if (t.equals(">>") || t.equals("1>>")) {
                 appendOut = true;
                 out = tokens.get(++i);
@@ -519,7 +564,6 @@ public class Main {
                 continue;
             }
 
-            // append stderr 2>>
             if (t.equals("2>>")) {
                 appendErr = true;
                 err = tokens.get(++i);
@@ -535,7 +579,6 @@ public class Main {
                 continue;
             }
 
-            // normal stdout redirect > or 1>
             if (t.equals(">") || t.equals("1>")) {
                 out = tokens.get(++i);
                 continue;
@@ -549,7 +592,6 @@ public class Main {
                 continue;
             }
 
-            // stderr redirect 2>
             if (t.equals("2>")) {
                 err = tokens.get(++i);
                 continue;
@@ -562,13 +604,11 @@ public class Main {
             cleaned.add(t);
         }
 
-        // Handle stdout overwrite (>) if not append
         if (out != null && !appendOut) {
             cleaned.add("__REDIR__");
             cleaned.add(out);
         }
 
-        // Handle stderr overwrite (2>) if not append AND no stderr redirection exists
         boolean hasErrRedir = cleaned.contains("__APPEND_ERR__") || cleaned.contains("__REDIR_ERR__");
         if (err != null && !hasErrRedir) {
             if (appendErr) {
@@ -586,9 +626,37 @@ public class Main {
     static void writeToFile(String file, String content, boolean append) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, append))) {
             bw.write(content);
-            bw.flush(); // ensure it's written immediately
+            bw.flush();
         } catch (IOException e) {
-            // do NOT print errors to stdout, silent fail per POSIX shell
+            // silent
         }
+    }
+
+    static void type(String[] input) {
+        String[] validCommands = {"exit", "type", "echo", "pwd", "cd"};
+        if (search(validCommands, input[1])) {
+            System.out.println(input[1] + " is a shell builtin");
+            return;
+        }
+        String path = System.getenv("PATH");
+        if (path == null) path = "";
+        String[] dirs = path.split(":");
+
+        for (String dir : dirs) {
+            if (dir.isEmpty()) continue;
+            File file = new File(dir, input[1]);
+            if (file.exists() && file.canExecute()) {
+                System.out.println(input[1] + " is " + file.getAbsolutePath());
+                return;
+            }
+        }
+        System.out.println(input[1] + ": not found");
+    }
+
+    static boolean search(String[] input, String command) {
+        for (String s : input) {
+            if (s.equals(command)) return true;
+        }
+        return false;
     }
 }
