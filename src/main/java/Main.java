@@ -178,40 +178,39 @@ public class Main {
     }
 
     static void runPipeline(List<String> leftCmd, List<String> rightCmd) {
+        if (leftCmd.isEmpty() || rightCmd.isEmpty()) return;
         try {
-            // 1️⃣ Capture left side output
             ByteArrayOutputStream leftOutput = new ByteArrayOutputStream();
 
+            // Run left side
             if (isBuiltin(leftCmd.get(0))) {
                 runBuiltin(leftCmd, new ByteArrayInputStream(new byte[0]), leftOutput);
             } else {
                 ProcessBuilder pb1 = new ProcessBuilder(leftCmd);
                 pb1.directory(currentDir);
                 Process p1 = pb1.start();
-
                 try (InputStream in = p1.getInputStream()) {
                     in.transferTo(leftOutput);
                 }
                 p1.waitFor();
             }
 
-            // 2️⃣ Use leftOutput as input for right side
             InputStream rightInput = new ByteArrayInputStream(leftOutput.toByteArray());
 
+            // Run right side
             if (isBuiltin(rightCmd.get(0))) {
                 runBuiltin(rightCmd, rightInput, System.out);
             } else {
                 ProcessBuilder pb2 = new ProcessBuilder(rightCmd);
                 pb2.directory(currentDir);
                 Process p2 = pb2.start();
-
                 try (OutputStream out = p2.getOutputStream()) {
                     rightInput.transferTo(out);
                 }
                 p2.waitFor();
             }
-        } catch (Exception e) {
-            System.err.println("Pipeline execution failed: " + e.getMessage());
+        } catch (Exception ignored) {
+            // Silent per POSIX shell behavior
         }
     }
 
