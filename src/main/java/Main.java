@@ -65,11 +65,9 @@ public class Main {
             });
 
             pipeThread.start();
-
             p1.waitFor();
             pipeThread.join();
             p2.waitFor();
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -96,16 +94,52 @@ public class Main {
         }
     }
 
-    static void runExternal(String[] cmd) {
+    static void runExternal(String[] input) {
+        List<String> cmdList = new ArrayList<>();
+        boolean appendOut = false;
+        boolean redirectOut = false;
+        String outFile = null;
+
+        for (int i = 0; i < input.length; i++) {
+            String token = input[i];
+            if (token.equals(">") || token.equals("1>")) {
+                redirectOut = true;
+                if (i + 1 < input.length) outFile = input[++i];
+            } else if (token.equals(">>") || token.equals("1>>")) {
+                appendOut = true;
+                redirectOut = true;
+                if (i + 1 < input.length) outFile = input[++i];
+            } else cmdList.add(token);
+        }
+
+        if (cmdList.isEmpty()) return;
+
         try {
-            ProcessBuilder pb = new ProcessBuilder(cmd);
+            ProcessBuilder pb = new ProcessBuilder(cmdList);
             pb.directory(currentDir);
             pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-            Process p = startProcess(pb, cmd[0]);
+
+            if (redirectOut && outFile != null) {
+                File target = new File(outFile);
+                File parent = target.getParentFile();
+
+                if (parent != null && !parent.exists()) {
+                    pb.redirectOutput(ProcessBuilder.Redirect.to(new File("/dev/null")));
+                } else {
+                    if (appendOut)
+                        pb.redirectOutput(ProcessBuilder.Redirect.appendTo(target));
+                    else
+                        pb.redirectOutput(ProcessBuilder.Redirect.to(target));
+                }
+            } else {
+                pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            }
+
+            Process p = startProcess(pb, cmdList.get(0));
             if (p != null) p.waitFor();
+
         } catch (Exception e) {
-            System.out.println(cmd[0] + ": command not found");
+            System.out.println(input[0] + ": command not found");
         }
     }
 
