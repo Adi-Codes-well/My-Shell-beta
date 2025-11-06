@@ -142,18 +142,17 @@ public class Main {
 
     static String handleAutocomplete(String input) {
         String beforeTab = input.split("\t")[0];
-        String[] parts = beforeTab.trim().split("\\s+");
+        String[] parts = beforeTab.split("\\s+");
         String lastWord = parts[parts.length - 1];
 
         for (String cmd : BUILTINS) {
             if (cmd.startsWith(lastWord)) {
-                return cmd + " ";
+                return beforeTab.substring(0, beforeTab.length() - lastWord.length()) + cmd + " ";
             }
         }
-        return beforeTab; // if nothing matches, just echo back
+
+        return beforeTab;
     }
-
-
 
     static void type(String[] input) {
         String[] validCommands = {"exit", "type", "echo", "pwd", "cd"};
