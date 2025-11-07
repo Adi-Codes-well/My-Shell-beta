@@ -48,7 +48,7 @@ Once the build is complete, you can start the shell using the Java executable. *
 ```bash
 java --enable-preview -jar target/mini-shell.jar
 ```
-# 3. Usage Example
+### 3. Usage Example
 
 ```bash
 $ echo "Hello World"
