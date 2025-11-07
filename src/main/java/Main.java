@@ -17,13 +17,23 @@ public class Main {
             List<String> parsed = parseCommand(input);
             String[] commands = parsed.toArray(new String[0]);
 
-            int pipeIndex = parsed.indexOf("|");
-            if (pipeIndex != -1) {
-                List<String> left = parsed.subList(0, pipeIndex);
-                List<String> right = parsed.subList(pipeIndex + 1, parsed.size());
-                runPipeline(left, right);
+            List<List<String>> pipeline = new ArrayList<>();
+            List<String> current = new ArrayList<>();
+            for (String token : parsed) {
+                if (token.equals("|")) {
+                    pipeline.add(new ArrayList<>(current));
+                    current.clear();
+                } else {
+                    current.add(token);
+                }
+            }
+            if (!current.isEmpty()) pipeline.add(current);
+
+            if (pipeline.size() > 1) {
+                runMultiPipeline(pipeline);
                 continue;
             }
+
 
             switch (commands[0]) {
                 case "exit":
@@ -119,7 +129,6 @@ public class Main {
 
                     break;
                 }
-
                 case "type":
                     type(commands);
                     break;
@@ -139,47 +148,164 @@ public class Main {
         }
     }
 
-    static void runPipeline(List<String> leftCmd, List<String> rightCmd) {
+    static void runMultiPipeline(List<List<String>> cmds) {
+        List<Process> processes = new ArrayList<>();
+        List<Thread> threads = new ArrayList<>();
+
         try {
-            ProcessBuilder pb1 = new ProcessBuilder(leftCmd);
-            ProcessBuilder pb2 = new ProcessBuilder(rightCmd);
+            InputStream prevOut = null; // output of previous stage (as InputStream)
 
-            pb1.directory(currentDir);
-            pb2.directory(currentDir);
+            for (int i = 0; i < cmds.size(); i++) {
+                List<String> cmd = cmds.get(i);
+                boolean isLast = (i == cmds.size() - 1);
+                boolean isBuiltin = isBuiltin(cmd.get(0));
 
-            pb1.redirectError(ProcessBuilder.Redirect.INHERIT);
-            pb2.redirectError(ProcessBuilder.Redirect.INHERIT);
-
-            pb1.redirectOutput(ProcessBuilder.Redirect.PIPE);
-            pb2.redirectInput(ProcessBuilder.Redirect.PIPE);
-            pb2.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-
-            Process p1 = pb1.start();
-            Process p2 = pb2.start();
-
-            // Pipe data from p1 → p2
-            Thread pipeThread = new Thread(() -> {
-                try (InputStream in = p1.getInputStream();
-                     OutputStream out = p2.getOutputStream()) {
-                    byte[] buffer = new byte[8192];
-                    int n;
-                    while ((n = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, n);
-                        out.flush();
+                if (isBuiltin) {
+                    // If builtin is the last stage, write directly to System.out
+                    if (isLast) {
+                        runBuiltinInPipeline(cmd, prevOut == null ? new ByteArrayInputStream(new byte[0]) : prevOut, System.out);
+                        // builtin wrote to stdout; set prevOut to null (no further stages)
+                        prevOut = null;
+                        continue;
+                    } else {
+                        // Middle builtin: capture its output into prevOut for next stage
+                        ByteArrayOutputStream builtinOut = new ByteArrayOutputStream();
+                        runBuiltinInPipeline(cmd, prevOut == null ? new ByteArrayInputStream(new byte[0]) : prevOut, builtinOut);
+                        prevOut = new ByteArrayInputStream(builtinOut.toByteArray());
+                        continue;
                     }
-                } catch (IOException ignored) {}
-                try { p2.getOutputStream().close(); } catch (IOException ignored) {}
-            });
+                }
 
-            pipeThread.start();
+                // External command
+                ProcessBuilder pb = new ProcessBuilder(cmd);
+                pb.directory(currentDir);
+                pb.redirectErrorStream(true); // merge stderr into stdout
+                Process p = pb.start();
+                processes.add(p);
 
-            // Wait for both to finish
-            p1.waitFor();
-            pipeThread.join();
-            p2.waitFor();
+                // If there is output from previous stage, feed it into this process's stdin
+                if (prevOut != null) {
+                    OutputStream stdin = p.getOutputStream();
+                    InputStream finalPrevOut = prevOut;
+                    Thread feeder = new Thread(() -> {
+                        try {
+                            streamCopy(finalPrevOut, stdin, true); // close stdin after copying
+                        } finally {
+                            try { stdin.close(); } catch (IOException ignored) {}
+                        }
+                    });
+                    feeder.start();
+                    threads.add(feeder);
+                } else {
+                    // No previous output: close stdin so the process doesn't wait for input
+                    try { p.getOutputStream().close(); } catch (IOException ignored) {}
+                }
 
-        } catch (Exception e) {
-            System.out.println("Pipeline execution failed: " + e.getMessage());
+                // Set prevOut to this process's stdout, so next iteration will consume it
+                prevOut = p.getInputStream();
+
+                // If last stage, stream its stdout to System.out
+                if (isLast) {
+                    InputStream finalPrevOut = prevOut;
+                    Thread outThread = new Thread(() -> {
+                        streamCopy(finalPrevOut, System.out, false); // don't close System.out
+                    });
+                    outThread.start();
+                    threads.add(outThread);
+                }
+            }
+
+            // Wait for all threads to finish
+            for (Thread t : threads) {
+                try { t.join(); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+            }
+
+            // Wait for all processes to exit
+            for (Process p : processes) {
+                try { p.waitFor(); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+            }
+
+        } catch (IOException e) {
+            // silent per POSIX behavior in your program
+        }
+    }
+
+    /**
+     * Copy all data from in -> out.
+     * If closeOutAfter is true, attempt to close the out stream after copying (use for process stdin).
+     * If closeOutAfter is false, do not close out (use for System.out).
+     */
+    static void streamCopy(InputStream in, OutputStream out, boolean closeOutAfter) {
+        try {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = in.read(buf)) != -1) {
+                out.write(buf, 0, len);
+                out.flush();
+            }
+        } catch (IOException ignored) {
+            // ignore per POSIX-like behavior
+        } finally {
+            if (closeOutAfter) {
+                try { out.close(); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    static boolean isBuiltin(String cmd) {
+        return Arrays.asList("echo", "type", "pwd", "cd", "exit").contains(cmd);
+    }
+
+
+    static void runBuiltinInPipeline(List<String> cmd, InputStream in, OutputStream out) throws IOException {
+        String name = cmd.get(0);
+        PrintWriter writer = new PrintWriter(new OutputStreamWriter(out));
+
+        switch (name) {
+            case "echo":
+                StringBuilder sb = new StringBuilder();
+                for (int i = 1; i < cmd.size(); i++) {
+                    if (i > 1) sb.append(" ");
+                    sb.append(cmd.get(i));
+                }
+                sb.append("\n");
+                writer.print(sb.toString());
+                writer.flush();
+                break;
+
+            case "pwd":
+                writer.println(currentDir.getAbsolutePath());
+                writer.flush();
+                break;
+
+            case "type":
+                if (cmd.size() < 2) return;
+                String arg = cmd.get(1);
+                if (isBuiltin(arg)) writer.println(arg + " is a shell builtin");
+                else {
+                    String path = System.getenv("PATH");
+                    if (path == null) path = "";
+                    boolean found = false;
+                    for (String dir : path.split(":")) {
+                        File file = new File(dir, arg);
+                        if (file.exists() && file.canExecute()) {
+                            writer.println(arg + " is " + file.getAbsolutePath());
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) writer.println(arg + ": not found");
+                }
+                writer.flush();
+                break;
+
+            case "exit":
+                // No-op in pipelines
+                break;
+
+            case "cd":
+                // Do nothing in pipeline context
+                break;
         }
     }
 

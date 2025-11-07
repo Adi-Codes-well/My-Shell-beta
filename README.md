@@ -1,35 +1,65 @@
-[![progress-banner](https://backend.codecrafters.io/progress/shell/811aafb1-b950-4b79-9c10-7cd5e86e97b9)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Java Mini Shell (POSIX Compliant) 🐚
 
-This is a starting point for Java solutions to the
-["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
+This project is a custom implementation of a POSIX-compliant shell written in Java. It is capable of handling standard shell tasks, including running built-in commands, executing external programs, and managing input/output redirection and pipelines.
 
-In this challenge, you'll build your own POSIX compliant shell that's capable of
-interpreting shell commands, running external programs and builtin commands like
-cd, pwd, echo and more. Along the way, you'll learn about shell command parsing,
-REPLs, builtin commands, and more.
+## ✨ Features
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+The shell provides core functionality necessary for interacting with the operating system:
 
-# Passing the first stage
+### Built-in Commands
+The following essential shell commands are implemented natively in Java:
+* **`exit [status]`**: Exits the shell, optionally with a specified status code.
+* **`echo [args]`**: Prints arguments to standard output.
+* **`type [command]`**: Identifies how a command would be interpreted (as a builtin, or as an external program found in the PATH).
+* **`pwd`**: Prints the name of the current working directory.
+* **`cd [path]`**: Changes the current working directory, supporting absolute paths and the home directory (`~`) shortcut.
 
-The entry point for your `shell` implementation is in `src/main/java/Main.java`.
-Study and uncomment the relevant code, and push your changes to pass the first
-stage:
+### Core Functionality
+* **External Command Execution**: Searches the system's `PATH` to find and execute external programs (e.g., `ls`, `grep`).
+* **Command Pipelines**: Supports chaining commands using the pipe operator (`|`), routing the standard output of one command to the standard input of the next.
+* **I/O Redirection**: Supports redirecting or appending standard output (`>`, `>>`, `1>`, `1>>`) and standard error (`2>`, `2>>`) to a specified file.
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+***
+
+## 🛠️ Prerequisites
+
+To build and run this project, you need the following tools installed on your system:
+
+* **Java Development Kit (JDK) 25 or higher:** The project is configured to use the Java 25 language level and preview features.
+* **Apache Maven:** Used to manage dependencies and build the executable JAR file.
+
+***
+
+## 🚀 Getting Started
+
+### 1. Build the Executable
+
+Execute the Maven `package` goal from the root directory. This command compiles the code and bundles it into a single executable file named `mini-shell.jar` (based on previous steps to rename the artifact).
+
+```bash
+mvn -B package
 ```
+### 2. Run the Shell
 
-Time to move on to the next stage!
+The final executable file will be located at `target/mini-shell.jar`.
 
-# Stage 2 & beyond
+Once the build is complete, you can start the shell using the Java executable. **Note the mandatory `--enable-preview` flag** to run the code compiled with modern Java features.
 
-Note: This section is for stages 2 and beyond.
+```bash
+java --enable-preview -jar target/mini-shell.jar
+```
+# 3. Usage Example
 
-1. Ensure you have `mvn` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main/java/Main.java`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+```bash
+$ echo "Hello World"
+Hello World
+$ type echo
+echo is a shell builtin
+$ pwd
+/home/user/my-mini-shell
+$cd src/main/java$ pwd
+/home/user/my-mini-shell/src/main/java
+$ cat Main.java | grep "import"
+import java.util.*;
+import java.io.*;
+```
