@@ -7,7 +7,6 @@ public class Main {
 
     // Global variable
     static File currentDir = new File(System.getProperty("user.dir"));
-
     public static void main(String[] args) throws Exception {
         Scanner scanner = new Scanner(System.in);
         while (true) {
